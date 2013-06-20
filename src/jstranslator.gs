@@ -1382,12 +1382,14 @@ let translators =
       if node instanceof LispyNode
         if node.is-internal-call(\access)
           // FIXME
-          return Type.any
+          Type.any
         else if node.is-symbol and node.is-ident
-          return if primitive-types ownskey node.name
+          if primitive-types ownskey node.name
             Type[primitive-types[node.name]]
           else
             Type.any // FIXME
+        else if node.is-symbol and node.is-internal and node.is-nothing
+          Type.any
         else if node.is-internal-call(\type-union)
           let mutable result = Type.none
           for type in node.types
@@ -1404,7 +1406,7 @@ let translators =
                 Type.any // FIXME
             else
               throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
-          return result
+          result
         else if node.is-internal-call(\type-generic)
           if node.args[0].is-ident and node.args[0].name == \Array
             translate-type-check(node.args[1]).array()
@@ -1420,40 +1422,35 @@ let translators =
               type-data[node.args[i].const-value()] := translate-type-check(node.args[i + 1])
           
           Type.make-object type-data
-      unless translate-type-checks ownskey node.type-id
+        else
+          throw Error "Unknown type: $(String typeof! node)"
+      else
         throw Error "Unknown type: $(String typeof! node)"
 
-      translate-type-checks[node.type-id] node
-    let translate-param-types = {
-      [ParserNodeType.Param]: #(param, scope, inner)
-        let mutable ident = translate(param.ident, scope, \param)()
-
-        let later-init = []
-        if ident instanceof ast.Binary and ident.op == "." and ident.right instanceof ast.Const and is-string! ident.right.value
-          let tmp = ast.Ident ident.pos, ident.right.value
-          later-init.push ast.Binary(ident.pos, ident, "=", tmp)
-          ident := tmp
-
-        unless ident instanceof ast.Ident
-          throw Error "Expecting param to be an Ident, got $(typeof! ident)"
-        
-        let type = if param.as-type then translate-type-check(param.as-type)
-        // TODO: mark the param as having a type
-        scope.add-variable ident, type, param.is-mutable
-        scope.mark-as-param ident
-
-        {
-          init: later-init
-          ident
-          spread: not not param.spread
-        }
-    }
-
     let translate-param(param, scope, inner)
-      let type = param.type-id
-      unless translate-param-types ownskey type
+      if param not instanceof LispyNode or not param.is-internal-call(\param)
         throw Error "Unknown parameter type: $(typeof! param)"
-      translate-param-types[type](param, scope, inner)
+      let mutable ident = translate(param.args[0], scope, \param)()
+
+      let later-init = []
+      if ident instanceof ast.Binary and ident.op == "." and ident.right instanceof ast.Const and is-string! ident.right.value
+        let tmp = ast.Ident ident.pos, ident.right.value
+        later-init.push ast.Binary(ident.pos, ident, "=", tmp)
+        ident := tmp
+
+      unless ident instanceof ast.Ident
+        throw Error "Expecting param to be an Ident, got $(typeof! ident)"
+      
+      let type = translate-type-check(param.args[4])
+      // TODO: mark the param as having a type
+      scope.add-variable ident, type, not not param.args[3].const-value()
+      scope.mark-as-param ident
+
+      {
+        init: later-init
+        ident
+        spread: not not param.args[2].const-value()
+      }
 
     let translate-type = do
       let primordial-types =

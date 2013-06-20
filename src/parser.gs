@@ -22,7 +22,6 @@ const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 
 let FunctionNode = Node.Function
 let MacroAccessNode = Node.MacroAccess
-let ParamNode = Node.Param
 
 let is-nothing(node)
   node instanceof LSymbol.nothing
@@ -2963,7 +2962,7 @@ let mutate-function(node as Node, parser, index)
 let validate-spread-parameters(params, parser)
   let mutable spread-count = 0
   for param in params
-    if param instanceof ParamNode and param.spread
+    if param instanceof LispyNode and param.is-internal-call(\param) and param.args[2].const-value()
       spread-count += 1
       if spread-count > 1
         throw ParserError "Cannot have more than one spread parameter", parser, param.index
@@ -2988,20 +2987,20 @@ let IdentifierOrThisAccess = one-of(
 
 let IdentifierParameter = sequential(
   [\is-mutable, bool maybe word "mutable"]
-  [\spread, bool MaybeSpreadToken]
+  [\is-spread, bool MaybeSpreadToken]
   [\ident, IdentifierOrThisAccess]
   [\as-type, MaybeAsType]
   [\default-value, maybe sequential(
     EqualSign
-    [\this, Expression])]) |> mutate #({is-mutable, spread, ident, as-type, default-value}, parser, index)
-  if spread and default-value
+    [\this, Expression])]) |> mutate #({is-mutable, is-spread, ident, as-type, default-value}, parser, index)
+  if is-spread and default-value
     throw ParserError "Cannot specify a default value for a spread parameter", parser, index
-  parser.Param index,
+  LInternalCall \param, index, parser.scope.peek(),
     ident
-    default-value
-    spread
-    is-mutable
-    as-type
+    default-value or LSymbol.nothing index
+    LValue index, is-spread
+    LValue index, is-mutable
+    as-type or LSymbol.nothing index
 
 // redefined later
 let mutable Parameter = #(parser, index) -> Parameter parser, index
@@ -3022,13 +3021,13 @@ let ParamDualObjectKey = sequential(
 let ParamSingularObjectKey = sequential(
   [\this, IdentifierParameter]
   NotColon) |> mutate #(param, parser, index)
-  let {ident} = param
+  let ident = param.args[0]
   let key = if ident instanceof LSymbol.ident
     LValue index, ident.name
   else if ident instanceof LispyNode and ident.is-internal-call(\access)
     ident.args[1]
   else
-    throw Error "Unknown object key type: $(param.type)"
+    throw Error "Unknown object key type: $(typeof! ident)"
   { key, value: param }
 
 let KvpParameter = maybe one-of(ParamDualObjectKey, ParamSingularObjectKey)
@@ -3095,23 +3094,23 @@ let ParameterSequence = sequential(
   EmptyLines
   CloseParenthesis) |> mutate do
   let check-param(param as Node, parser, names as [])!
-    if param instanceof ParamNode
-      let ident = param.ident
-      let name = if ident instanceof LSymbol.ident
-        ident.name
-      else if ident instanceof LispyNode and ident.is-internal-call(\access)
-        let child = ident.args[1]
-        if not child.is-const-type(\string)
-          throw Error "Expected constant access"
-        child.const-value()
-      else
-        throw Error "Unknown param ident type: $(typeof! param)"
-      if name in names
-        throw ParserError "Duplicate parameter name: $(quote name)", parser, ident.index
-      else
-        names.push name
-    else if param instanceof LispyNode and param.is-internal-call()
-      if param.func.is-array
+    if param instanceof LispyNode and param.is-internal-call()
+      if param.func.is-param
+        let ident = param.args[0]
+        let name = if ident instanceof LSymbol.ident
+          ident.name
+        else if ident instanceof LispyNode and ident.is-internal-call(\access)
+          let child = ident.args[1]
+          if not child.is-const-type(\string)
+            throw Error "Expected constant access"
+          child.const-value()
+        else
+          throw Error "Unknown param ident type: $(typeof! param)"
+        if name in names
+          throw ParserError "Duplicate parameter name: $(quote name)", parser, ident.index
+        else
+          names.push name
+      else if param.func.is-array
         for element in param.args
           check-param element, parser, names
       else if param.func.is-object
@@ -3442,7 +3441,12 @@ let CustomOperatorCloseParenthesis = do
     let scope = parser.push-scope(true)
     scope.add node, false, Type.any
     let result = mutate-function parser.Function(index,
-      [parser.Param index, node]
+      [LInternalCall \param, index, parser.scope.peek(),
+        node
+        LSymbol.nothing index
+        LValue index, false
+        LValue index, false
+        LSymbol.nothing index]
       operator.func {
         op: op.value
         node
@@ -3470,10 +3474,13 @@ let CustomOperatorCloseParenthesis = do
     scope.add left, false, Type.any
     scope.add right, false, Type.any
     let result = mutate-function parser.Function(index,
-      [
-        parser.Param index, left
-        parser.Param index, right
-      ]
+      for ident in [left, right]
+        LInternalCall \param, index, parser.scope.peek(),
+          ident
+          LSymbol.nothing index
+          LValue index, false
+          LValue index, false
+          LSymbol.nothing index
       operator.func {
         left
         inverted
@@ -3527,7 +3534,12 @@ define Parenthetical = allow-space-before-access sequential(
         let scope = parser.push-scope(true)
         let right = parser.make-tmp index, \x
         let result = mutate-function parser.Function(index,
-          [parser.Param index, right]
+          [LInternalCall \param, index, parser.scope.peek(),
+            right
+            LSymbol.nothing index
+            LValue index, false
+            LValue index, false
+            LSymbol.nothing index]
           operator.operator.func {
             left: left.rescope(scope)
             operator.inverted
@@ -3545,7 +3557,12 @@ define Parenthetical = allow-space-before-access sequential(
         let scope = parser.push-scope(true)
         let left = parser.make-tmp index, \x
         let result = mutate-function parser.Function(index,
-          [parser.Param index, left]
+          [LInternalCall \param, index, parser.scope.peek(),
+            left
+            LSymbol.nothing index
+            LValue index, false
+            LValue index, false
+            LSymbol.nothing index]
           operator.func {
             left
             inverted
@@ -3561,7 +3578,12 @@ define Parenthetical = allow-space-before-access sequential(
         let scope = parser.push-scope(true)
         let left = parser.make-tmp index, \o
         let result = mutate-function parser.Function(index,
-          [parser.Param index, left]
+          [LInternalCall \param, index, parser.scope.peek(),
+            left
+            LSymbol.nothing index
+            LValue index, false
+            LValue index, false
+            LSymbol.nothing index]
           convert-invocation-or-access(false, {
             type: \normal
             -existential
@@ -5233,12 +5255,13 @@ class Parser
         @Function(index
           [
             params
-            @Param index, (LSymbol.ident index, scope, \__wrap), void, false, true, void
-            @Param index, (LSymbol.ident index, scope, \__node), void, false, true, void
-            @Param index, (LSymbol.ident index, scope, \__const), void, false, true, void
-            @Param index, (LSymbol.ident index, scope, \__value), void, false, true, void
-            @Param index, (LSymbol.ident index, scope, \__symbol), void, false, true, void
-            @Param index, (LSymbol.ident index, scope, \__call), void, false, true, void
+            ...for name in [\__wrap, \__node, \__const, \__value, \__symbol, \__call]
+              LInternalCall \param, index, scope,
+                LSymbol.ident index, scope, name
+                LSymbol.nothing index // default-value
+                LValue index, false // is-spread
+                LValue index, true // is-mutable
+                LSymbol.nothing index // as-type
           ]
           body
           true
@@ -5389,7 +5412,12 @@ class Parser
     syntax: #(index, params, mutable body, options, state-options, translator)
       let scope = @scope.peek()
       let macro-full-data-ident = LSymbol.ident index, scope, \macro-full-data
-      let func-param = @Param index, macro-full-data-ident, void, false, false, void
+      let func-param = LInternalCall \param, index, scope,
+        macro-full-data-ident
+        LSymbol.nothing index // default-value
+        LValue index, false // is-spread
+        LValue index, false // is-mutable
+        LSymbol.nothing index // as-type
       let macro-name-ident = LSymbol.ident index, scope, \macro-name
       scope.add macro-name-ident, false, Type.string
       let macro-data-ident = LSymbol.ident index, scope, \macro-data
@@ -5447,7 +5475,12 @@ class Parser
         do
           let scope = @scope.peek()
           let macro-data-ident = LSymbol.ident index, scope, \macro-data
-          let func-param = @Param index, macro-data-ident, void, false, false, void
+          let func-param = LInternalCall \param, index, scope,
+            macro-data-ident
+            LSymbol.nothing index // default-value
+            LValue index, false // is-spread
+            LValue index, false // is-mutable
+            LSymbol.nothing index // as-type
           body := LInternalCall \block, index, scope,
             ...for param in params
               if param instanceof LispyNode and param.is-internal-call(\syntax-param)
@@ -5487,7 +5520,12 @@ class Parser
     call: #(index, params, mutable body, options, state-options, translator)
       let scope = @scope.peek()
       let macro-full-data-ident = LSymbol.ident index, scope, \macro-full-data
-      let func-param = @Param index, macro-full-data-ident, void, false, false, void
+      let func-param = LInternalCall \param, index, scope,
+        macro-full-data-ident
+        LSymbol.nothing index // default-value
+        LValue index, false // is-spread
+        LValue index, false // is-mutable
+        LSymbol.nothing index // as-type
       let macro-name-ident = LSymbol.ident index, scope, \macro-name
       scope.add macro-name-ident, false, Type.string
       let macro-data-ident = LSymbol.ident index, scope, \macro-data
@@ -5508,15 +5546,16 @@ class Parser
             macro-full-data-ident
             LValue index, \macro-data
         ...for param, i in params
-          if param instanceof ParamNode
-            scope.add param.ident, true, Type.any
+          if param instanceof LispyNode and param.is-internal-call(\param)
+            let ident = param.args[0]
+            scope.add ident, true, Type.any
             LInternalCall \block, index, scope,
               LInternalCall \var, index, scope,
-                param.ident
+                ident
                 LispyNode.Value index, true
               LCall index, scope,
                 LSymbol.assign["="] index
-                param.ident
+                ident
                 LInternalCall \access, index, scope,
                   macro-data-ident
                   LValue index, i
@@ -5543,7 +5582,12 @@ class Parser
     
     binary-operator: #(index, operators, mutable body, options, state-options, translator)
       let macro-data-ident = LSymbol.ident index, scope, \macro-data
-      let func-param = @Param index, macro-data-ident, void, false, false, void
+      let func-param = LInternalCall \param, index, scope,
+        macro-data-ident
+        LSymbol.nothing index // default-value
+        LValue index, false // is-spread
+        LValue index, false // is-mutable
+        LSymbol.nothing index // as-type
       let scope = @scope.peek()
       body := LInternalCall \block, index, scope,
         ...for name in [\left, \op, \right]
@@ -5593,7 +5637,12 @@ class Parser
     assign-operator: #(index, operators, mutable body, options, state-options, translator)
       let scope = @scope.peek()
       let macro-data-ident = LSymbol.ident index, scope, \macro-data
-      let func-param = @Param index, macro-data-ident, void, false, false, void
+      let func-param = LInternalCall \param, index, scope,
+        macro-data-ident
+        LSymbol.nothing index // default-value
+        LValue index, false // is-spread
+        LValue index, false // is-mutable
+        LSymbol.nothing index // as-type
       body := LInternalCall \block, index, scope,
         ...for name in [\left, \op, \right]
           let ident = LSymbol.ident index, scope, name
@@ -5631,7 +5680,12 @@ class Parser
     unary-operator: #(index, operators, mutable body, options, state-options, translator)
       let scope = @scope.peek()
       let macro-data-ident = LSymbol.ident index, scope, \macro-data
-      let func-param = @Param index, macro-data-ident, void, false, false, void
+      let func-param = LInternalCall \param, index, scope,
+        macro-data-ident
+        LSymbol.nothing index // default-value
+        LValue index, false // is-spread
+        LValue index, false // is-mutable
+        LSymbol.nothing index // as-type
       body := LInternalCall \block, index, scope,
         ...for name in [\op, \node]
           let ident = LSymbol.ident index, scope, name
@@ -6101,8 +6155,7 @@ module.exports := parse <<< {
 
 for node-type in [
       'Function',
-      'MacroAccess',
-      'Param' ]
+      'MacroAccess' ]
   Parser.add-node-factory node-type, Node[node-type]
 Parser::string := Node.string
 Parser::array-param := Parser::array

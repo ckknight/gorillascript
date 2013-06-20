@@ -8,7 +8,6 @@ let {node-to-type, add-param-to-scope} = require './parser-utils'
 
 let FunctionNode = Node.Function
 let MacroAccessNode = Node.MacroAccess
-let ParamNode = Node.Param
 
 let Tmp = LispyNode.Symbol.tmp
 let Ident = LispyNode.Symbol.ident
@@ -371,25 +370,42 @@ class MacroContext
     else
       []
   
-  def param(ident as Node, default-value, spread, is-mutable, as-type)
-    ParamNode(ident.index, ident.scope, ident, default-value, spread, is-mutable, as-type).reduce(@parser)
+  def param(ident as Node, default-value as Node|null, spread as Boolean, is-mutable as Boolean, as-type as Node|null)
+    LispyNode.InternalCall(\param, ident.index, ident.scope,
+      ident
+      default-value or LispyNode.Symbol.nothing ident.index
+      LispyNode.Value ident.index, spread
+      LispyNode.Value ident.index, is-mutable
+      as-type or LispyNode.Symbol.nothing ident.index).reduce(@parser)
   
-  def is-param(node) -> @real(node) instanceof ParamNode
+  def is-param(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-internal-call(\param)
   def param-ident(mutable node)
     node := @real node
-    if @is-param node then node.ident
+    if @is-param node then node.args[0]
   def param-default-value(mutable node)
     node := @real node
-    if @is-param node then node.default-value
+    if @is-param node
+      let default-value = node.args[1]
+      if default-value instanceof LispyNode and default-value.is-symbol and default-value.is-internal and default-value.is-nothing
+        null
+      else
+        default-value
   def param-is-spread(mutable node)
     node := @real node
-    if @is-param node then not not node.spread
+    if @is-param node then not not node.args[2].const-value()
   def param-is-mutable(mutable node)
     node := @real node
-    if @is-param node then not not node.is-mutable
+    if @is-param node then not not node.args[3].const-value()
   def param-type(mutable node)
     node := @real node
-    if @is-param node then node.as-type
+    if @is-param node
+      let as-type = node.args[4]
+      if as-type instanceof LispyNode and as-type.is-symbol and as-type.is-internal and as-type.is-nothing
+        null
+      else
+        as-type
   
   def is-array(mutable node)
     node := @real(node)

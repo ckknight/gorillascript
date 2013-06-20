@@ -38,6 +38,8 @@ let node-to-type = do
           ident-to-type[node.name]
         else
           node.type()
+      case node.is-symbol and node.is-internal and node.is-nothing
+        Type.any
       case node.is-internal-call(\type-union)
         for reduce type in node.args, current = Type.none
           current.union node-to-type(type)
@@ -94,19 +96,23 @@ let map-async(array, func, context, callback)
 let add-param-to-scope(scope, param, force-mutable)!
   require! Node: './parser-nodes'
   require! LispyNode: './parser-lispynodes'
-  if param instanceof Node.Param
-    if param.ident instanceofsome [LispyNode.Symbol.ident, LispyNode.Symbol.tmp]
-      scope.add param.ident, force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
-    else if param.ident instanceof LispyNode and param.ident.is-internal-call(\access)
-      let [, child] = param.ident.args
-      if not child.is-const-type(\string)
-        throw Error "Expected constant access: $(typeof! child)"
-      scope.add LispyNode.Symbol.ident(param.index, param.scope, child.value), force-mutable or param.is-mutable, if param.as-type then node-to-type(param.as-type) else if param.spread then Type.array else Type.any
-    else
-      throw Error "Unknown param ident: $(typeof! param.ident)"
-  else if param instanceof LispyNode
+  if param instanceof LispyNode
     if param.is-internal-call()
-      if param.func.is-array
+      if param.func.is-param
+        let ident = param.args[0]
+        let is-spread = param.args[2].const-value()
+        let is-mutable = force-mutable or param.args[3].const-value()
+        let as-type = param.args[4].convert-nothing(void)
+        if ident instanceofsome [LispyNode.Symbol.ident, LispyNode.Symbol.tmp]
+          scope.add ident, is-mutable, if as-type then node-to-type(as-type) else if is-spread then Type.array else Type.any
+        else if ident instanceof LispyNode and ident.is-internal-call(\access)
+          let [, child] = ident.args
+          if not child.is-const-type(\string)
+            throw Error "Expected constant access: $(typeof! child)"
+          scope.add LispyNode.Symbol.ident(param.index, param.scope, child.value), is-mutable, if as-type then node-to-type(as-type) else if is-spread then Type.array else Type.any
+        else
+          throw Error "Unknown param ident: $(typeof! ident)"
+      else if param.func.is-array
         for element in param.args by -1
           add-param-to-scope scope, element, force-mutable
       else if param.func.is-object
@@ -114,6 +120,8 @@ let add-param-to-scope(scope, param, force-mutable)!
           add-param-to-scope scope, element.args[1], force-mutable
     else if not (param.is-symbol and param.is-internal and param.is-nothing)
       throw Error "Unknown param node type: $(typeof! param)"
+  else
+    throw Error "Unknown param type: $(typeof! param)"
 
 exports <<< {
   node-to-type

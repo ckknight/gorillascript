@@ -37,6 +37,7 @@ class Node extends OldNode
   def is-binary-call() -> false
   def is-assign-call() -> false
   def do-wrap-args = true
+  def convert-nothing() -> this
 
 /**
  * Represents a constant primitive value such as a number, string, boolean,
@@ -793,6 +794,11 @@ class Symbol extends Node
             func@(context, this) ? this
           else
             this
+        convert-nothing(value)
+          if is-function! value
+            value()
+          else
+            value
       }
       object: {
         validate-args(prototype as OldNode, ...pairs)!
@@ -833,7 +839,12 @@ class Symbol extends Node
           #(call, parser)
             cache-get-or-add! cache, call, for every arg in call.args; arg.is-noop(parser)
       }
-      param: {}
+      param: {
+        -do-wrap-args
+        validate-args(ident as OldNode, default-value as OldNode, is-spread as Value, is-mutable as Value, as-type as OldNode, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to param"
+      }
       return: {
         -do-wrap-args // maybe this should be true
         validate-args(node as OldNode, ...rest)

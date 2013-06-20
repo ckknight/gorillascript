@@ -7,7 +7,6 @@ const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 const ParserNodeType = {
   Function:       20
   MacroAccess:    23
-  Param:          27
 }
 
 macro cache-get-or-add!(cache, key, value)
