@@ -3192,10 +3192,15 @@ let _FunctionDeclaration = do
       body.value
       flags-value.auto-return
       flags-value.bound
-      flags-value.curry
       as-type.value
       flags-value.generator
     let mutable result = mutate-function func, parser, index
+    if flags-value.curry and params.value.length > 1
+      // TODO: verify that there are no spread parameters
+      result := LCall index, parser.scope.peek(),
+        LSymbol.ident index, parser.scope.peek(), \__curry
+        LValue index, params.value.length
+        result
     if generic.value.length
       let generic-macro = parser.get-macro-by-label \generic
       if not generic-macro
@@ -3496,11 +3501,12 @@ let CustomOperatorCloseParenthesis = do
         op: op.value
         right
       }, parser, index
-      true
-      false
       true), parser, index
     parser.pop-scope()
-    Box close.index, result
+    Box close.index, LCall index, parser.scope.peek(),
+      LSymbol.ident index, parser.scope.peek(), \__curry
+      LValue index, 2
+      result
   #(parser, index)!
     for operator in parser.all-binary-operators() by -1
       return? handle-binary-operator operator, parser, index

@@ -2030,7 +2030,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         init.splice init-index, 0, AST(param)
           let $ident = arguments[$spread-counter + ($i - $found-spread - 1)]
   
-  let mutable result = if init.length or changed or @func-is-curried(node)
+  let mutable result = if init.length or changed
     let body = @func-body(node)
     @rewrap(@func(params
       AST(body)
@@ -2039,14 +2039,10 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         $body
       @func-is-auto-return(node) and not @is-nothing(body)
       @func-is-bound(node)
-      false
       @func-as-type(node)
       @func-is-generator(node)), node)
   else
     node
-  
-  if @func-is-curried(node)
-    result := ASTE __curry $(params.length), $result
   
   result
 
@@ -2484,7 +2480,6 @@ macro once!(func, silent-fail)
         $body
       @func-is-auto-return func
       @func-is-bound func
-      @func-is-curried func
       @func-as-type func
       @func-is-generator func))
     AST
@@ -3002,8 +2997,6 @@ macro class
       if is-def(node)
         let key = @custom-data(node)[0]
         if @is-const(key) and @value(key) == \constructor
-          //if @is-func(@right(node)) and @func-is-curried(@right(node))
-          //  throw Error "Cannot curry a class's constructor"
           constructor-count += 1
       void
     
@@ -3012,7 +3005,7 @@ macro class
       @walk body, #(node)
         if is-def(node)
           let key = @custom-data(node)[0]
-          if @is-const(key) and @value(key) == \constructor and @is-func(@custom-data(node)[1]) and not @func-is-curried(@custom-data(node)[1])
+          if @is-const(key) and @value(key) == \constructor and @is-func(@custom-data(node)[1])
             has-top-level-constructor := true
           node
         else
@@ -3063,16 +3056,14 @@ macro class
                 @func-params constructor
                 @func-body constructor
                 false
-                AST(constructor) if eval("this") instanceof $name then eval("this") else { extends $prototype }
-                false), value)
+                AST(constructor) if eval("this") instanceof $name then eval("this") else { extends $prototype }), value)
               ASTE(node) $ctor := __curry $first-arg, $constructor
             else if @is-func value
               let constructor = @rewrap(@func(
                 @func-params value
                 @func-body value
                 false
-                AST(constructor) if eval("this") instanceof $name then eval("this") else { extends $prototype }
-                @func-is-curried value), value)
+                AST(constructor) if eval("this") instanceof $name then eval("this") else { extends $prototype }), value)
               ASTE(node) $ctor := $constructor
             else
               ASTE(node) $ctor := $value
@@ -3716,7 +3707,6 @@ macro promise!
       body
       true
       true
-      false
       null
       true), body)
     

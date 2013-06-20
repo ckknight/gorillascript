@@ -254,7 +254,7 @@ macro node-class
       $body
       $add-methods
 
-node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, curry as Boolean, as-type as Node|void, generator as Boolean)
+node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, as-type as Node|void, generator as Boolean)
   def type(o) -> @_type ?=
     // TODO: handle generator types
     if @as-type?
@@ -285,7 +285,7 @@ node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Bool
       walker @body
       return-type.function()
   def _is-noop(o) -> true
-  def _to-JSON() -> [@params, @body, @auto-return, ...simplify-array [@bound, @curry, @as-type, @generator]]
+  def _to-JSON() -> [@params, @body, @auto-return, ...simplify-array [@bound, @as-type, @generator]]
 node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in-statement as Boolean, in-generator as Boolean, in-evil-ast as Boolean, do-wrapped as Boolean)
   def type(o) -> @_type ?=
     let type = o.macros.get-type-by-id(@id)
