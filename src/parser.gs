@@ -3195,8 +3195,17 @@ let _FunctionDeclaration = do
       flags-value.curry
       as-type.value
       flags-value.generator
-      generic.value
-    let result = mutate-function func, parser, index
+    let mutable result = mutate-function func, parser, index
+    if generic.value.length
+      let generic-macro = parser.get-macro-by-label \generic
+      if not generic-macro
+        throw ParserError "Cannot use generics until the generic macro has been defined", parser, index
+      result := generic-macro.func {
+        macro-data: [
+          result
+          generic.value
+        ]
+      }, parser, index
     parser.pop-scope()
     Box body.index, result
 let FunctionDeclaration = require-parameter-sequence _FunctionDeclaration

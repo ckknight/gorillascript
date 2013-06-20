@@ -1730,6 +1730,51 @@ define helper __generic-func = #(num-args as Number, make as ->)
   result.generic := generic
   result
 
+macro generic!(func, types) with label: \generic
+  if @is-array(types)
+    types := @elements(types)
+  else if not is-array! types
+    @error "Expected types to be an array"
+  if types.length == 0
+    return func
+  let params = for type in types; @param(type)
+  let make-function-ident = @tmp \make, false
+  let instanceofs = {}
+  for type in types
+    let name = @name(type)
+    let key = @tmp "instanceof_$(name)", false
+    if instanceofs ownskey name
+      @error "Duplicate generic type '$name'", type
+    instanceofs[name] := {
+      key
+      let: AST(type) let $key as -> = __get-instanceof($type)
+      used: false
+    }
+  let disable-generics = @get-const-value("DISABLE_GENERICS", false)
+  func := @walk @macro-expand-all(func), #(node)
+    if @is-binary(node) and @op(node) == \instanceof
+      let right = @right(node)
+      if @is-ident(right)
+        let name = @name(right)
+        if instanceofs ownskey name
+          let key = instanceofs[name].key
+          instanceofs[name].used := true
+          let left = @left(node)
+          if disable-generics
+            ASTE(node) true
+          else
+            ASTE(node) $key($left)
+  if disable-generics
+    func
+  else
+    let instanceof-lets = for name, item of instanceofs
+      if item.used
+        item.let
+    let make-function-func = @func params, AST
+      $instanceof-lets
+      return $func
+    AST __generic-func $(types.length), $make-function-func
+
 define operator unary mutate-function! with type: \node, label: \mutate-function
   let disable-type-checking = @get-const-value("DISABLE_TYPE_CHECKING", false)
   let article(text)
@@ -1996,47 +2041,13 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
       @func-is-bound(node)
       false
       @func-as-type(node)
-      @func-is-generator(node)
-      @func-generic(node)), node)
+      @func-is-generator(node)), node)
   else
     node
   
   if @func-is-curried(node)
     result := ASTE __curry $(params.length), $result
   
-  let generic-args = @func-generic(node)
-  if generic-args.length > 0 and not @get-const-value("DISABLE_GENERICS", false)
-    let generic-cache = @tmp \cache, false
-    let generic-params = for generic-arg in generic-args; @param(generic-arg)
-    let make-function-ident = @tmp \make, false
-    let instanceofs = {}
-    for generic-arg in generic-args
-      let name = @name(generic-arg)
-      let key = @tmp "instanceof_$(name)", false
-      instanceofs[name] := {
-        key
-        let: AST(generic-arg) let $key as -> = __get-instanceof($generic-arg)
-        used: false
-      }
-    result := @walk @macro-expand-all(result), #(node)
-      if @is-binary(node) and @op(node) == \instanceof
-        let right = @right(node)
-        if @is-ident(right)
-          let name = @name(right)
-          if instanceofs ownskey name
-            let func = instanceofs[name].key
-            instanceofs[name].used := true
-            let left = @left(node)
-            return ASTE(node) $func($left)
-    let instanceof-lets = for name, item of instanceofs
-      if item.used
-        item.let
-    if instanceof-lets.length
-      result := AST
-        $instanceof-lets
-        $result
-    let make-function-func = @func(generic-params, result, true, false)
-    result := AST __generic-func $(generic-args.length), $make-function-func
   result
 
 define helper __range = #(start as Number, end as Number, step as Number, inclusive as Boolean) as [Number]
@@ -2475,8 +2486,7 @@ macro once!(func, silent-fail)
       @func-is-bound func
       @func-is-curried func
       @func-as-type func
-      @func-is-generator func
-      @func-generic func))
+      @func-is-generator func))
     AST
       let mutable $ran = false
       $func
@@ -3102,50 +3112,8 @@ macro class
       return $name
     
     if generic-args.length > 0
-      if @get-const-value("DISABLE_GENERICS", false)
-        let names = {}
-        for generic-arg in generic-args
-          let name = @name(generic-arg)
-          names[name] := true
-        result := @walk @macro-expand-all(result), #(node)
-          if @is-binary(node) and @op(node) == \instanceof
-            let right = @right(node)
-            if @is-ident(right)
-              let name = @name(right)
-              if names ownskey name
-                return ASTE(node) true
-      else
-        let generic-cache = @tmp \cache, false
-        let generic-params = for generic-arg in generic-args; @param(generic-arg)
-        let make-class-ident = @tmp \make, false
-        let instanceofs = {}
-        for generic-arg in generic-args
-          let name = @name(generic-arg)
-          let key = @tmp "instanceof_$(name)", false, \function
-          instanceofs[name] := {
-            key
-            let: AST(generic-arg) let $key as (-> Boolean) = __get-instanceof($generic-arg)
-            used: false
-          }
-        result := @walk @macro-expand-all(result), #(node)
-          if @is-binary(node) and @op(node) == \instanceof
-            let right = @right(node)
-            if @is-ident(right)
-              let name = @name(right)
-              if instanceofs ownskey name
-                let func = instanceofs[name].key
-                instanceofs[name].used := true
-                let left = @left(node)
-                return ASTE(node) $func($left)
-        let instanceof-lets = for name, item of instanceofs
-          if item.used
-            item.let
-        if instanceof-lets.length
-          result := AST(result)
-            $instanceof-lets
-            $result
-        let make-class-func = @func(generic-params, result, true, false)
-        result := AST __generic-func $(generic-args.length), $make-class-func
+      let generic-args-array = @array generic-args
+      result := ASTE generic! $result, $generic-args-array
     
     if declaration?
       AST let $declaration = $result

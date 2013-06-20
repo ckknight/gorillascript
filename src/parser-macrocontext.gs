@@ -331,13 +331,13 @@ class MacroContext
       func
       ...(for arg in args; @do-wrap(arg))).reduce(@parser)
   
-  def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean, as-type as Node|void, generator as Boolean, generic as [Ident|Tmp] = [])
+  def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, curry as Boolean, as-type as Node|void, generator as Boolean)
     let scope = @parser.push-scope(true)
     params := for param in params
       let p = param.rescope scope
       add-param-to-scope scope, p
       p
-    let func = FunctionNode(body.index, scope.parent, params, body.rescope(scope), auto-return, bound, curry, as-type, generator, generic).reduce(@parser)
+    let func = FunctionNode(body.index, scope.parent, params, body.rescope(scope), auto-return, bound, curry, as-type, generator).reduce(@parser)
     @parser.pop-scope()
     func
   
@@ -363,12 +363,6 @@ class MacroContext
   def func-is-generator(mutable node)
     node := @real node
     if @is-func node then not not node.generator
-  def func-generic(mutable node)
-    node := @real node
-    if @is-func node
-      node.generic.slice()
-    else
-      []
   
   def param(ident as Node, default-value as Node|null, spread as Boolean, is-mutable as Boolean, as-type as Node|null)
     LispyNode.InternalCall(\param, ident.index, ident.scope,

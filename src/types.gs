@@ -1031,6 +1031,8 @@ module.exports := class Type
   @error := @make "Error"
   // technically promise.then should return a promise, but it's self-referential
   @promise := @make-object({then: @any.function(@function, @function)})
+  @generator-result := @make-object({ done: @boolean, value: any })
+  @generator := @generator-result.function()
   @numeric := @number.union(@undefined).union(@null).union(@boolean)
   @string-or-number := @string.union(@number)
   @array-like := @array.union(@args)
