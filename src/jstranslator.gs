@@ -1629,7 +1629,6 @@ let translate-lispy-internal =
           []
           LispyNode.InternalCall \auto-return, args[0].index, inner-scope,
             args[0].rescope(inner-scope)
-          false
           true
     else
       args[0]

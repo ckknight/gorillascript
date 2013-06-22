@@ -82,7 +82,6 @@ class Node
           []
           LispyNode.InternalCall \return, @index, inner-scope,
             @rescope(inner-scope)
-          false
           true
       parser.pop-scope()
       result
@@ -259,7 +258,7 @@ macro node-class
       $body
       $add-methods
 
-node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Boolean = true, bound as Node|Boolean = false, as-type as Node|void, generator as Boolean)
+node-class FunctionNode(params as [Node] = [], body as Node, bound as Node|Boolean = false, as-type as Node|void, generator as Boolean)
   def type(o) -> @_type ?=
     // TODO: handle generator types
     if @as-type?
@@ -293,7 +292,7 @@ node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Bool
       return-type.function()
       */
   def _is-noop(o) -> true
-  def _to-JSON() -> [@params, @body, @auto-return, ...simplify-array [@bound, @as-type, @generator]]
+  def _to-JSON() -> [@params, @body, ...simplify-array [@bound, @as-type, @generator]]
   def return-type(o, is-last)
     if is-last
       Type.undefined

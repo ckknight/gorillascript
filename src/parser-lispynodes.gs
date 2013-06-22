@@ -2350,7 +2350,6 @@ class Call extends Node
           Call @index, inner-scope,
             Symbol.auto-return @index
             @rescope(inner-scope)
-          false
           true
       parser.pop-scope()
       result

@@ -3193,7 +3193,6 @@ let _FunctionDeclaration = do
           body.value
       else
         body.value
-      false
       flags-value.bound
       as-type.value
       flags-value.generator
@@ -3468,8 +3467,7 @@ let CustomOperatorCloseParenthesis = do
         operator.func {
           op: op.value
           node
-        }, parser, index
-      false), parser, index
+        }, parser, index), parser, index
     parser.pop-scope()
     Box close.index, result
   let handle-binary-operator(operator, parser, mutable index)
@@ -3505,8 +3503,7 @@ let CustomOperatorCloseParenthesis = do
           inverted
           op: op.value
           right
-        }, parser, index
-      false), parser, index
+        }, parser, index), parser, index
     parser.pop-scope()
     Box close.index, LCall index, parser.scope.peek(),
       LSymbol.ident index, parser.scope.peek(), \__curry
@@ -3566,8 +3563,7 @@ define Parenthetical = allow-space-before-access sequential(
               operator.inverted
               operator.op
               right
-            }, parser, index
-          false), parser, index
+            }, parser, index), parser, index
         parser.pop-scope()
         result
     CustomOperatorCloseParenthesis
@@ -3590,8 +3586,7 @@ define Parenthetical = allow-space-before-access sequential(
               inverted
               op
               right: right.rescope scope
-            }, parser, index
-          false), parser, index
+            }, parser, index), parser, index
         parser.pop-scope()
         result
     sequential(
@@ -3611,8 +3606,7 @@ define Parenthetical = allow-space-before-access sequential(
               type: \normal
               -existential
               node: left
-            }, tail, parser, index).rescope scope
-          false), parser, index
+            }, tail, parser, index).rescope scope), parser, index
         parser.pop-scope()
         result)])
 
@@ -5285,8 +5279,7 @@ class Parser
                 LValue index, true // is-mutable
                 LSymbol.nothing index // as-type
           ]
-          LInternalCall \auto-return, body.index, body.scope, body
-          false)
+          LInternalCall \auto-return, body.index, body.scope, body)
       LValue index, false
       LValue index, false
   

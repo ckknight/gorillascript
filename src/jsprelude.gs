@@ -999,7 +999,7 @@ macro do
             values.push locals.rest[i].value
           f i + 1
       f 0
-    @call(@func(params, @auto-return(body), false, true), values)
+    @call(@func(params, @auto-return(body), true), values)
 
 macro with
   syntax node as Expression, body as (Body | (";", this as Statement))
@@ -2037,7 +2037,6 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         $init
         void
         $body
-      false
       @func-is-bound(node)
       @func-as-type(node)
       @func-is-generator(node)), node)
@@ -2478,7 +2477,6 @@ macro once!(func, silent-fail)
         else
           $ran := true
         $body
-      false
       @func-is-bound func
       @func-as-type func
       @func-is-generator func))
@@ -2495,7 +2493,7 @@ macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody
     body ?= @noop()
     params := if params then [params.head].concat(params.tail) else []
-    let func = @func(params, @auto-return(body), false, true)
+    let func = @func(params, @auto-return(body), true)
     
     if @is-context-call(call)
       call := @real(call)
@@ -2531,7 +2529,6 @@ macro async!
           if $error?
             return $callback $error
           $body
-      false
       true
     if @is-context-call(call)
       call := @real(call)
@@ -3023,7 +3020,6 @@ macro class
             let constructor = @rewrap(@func(
               @func-params value
               @func-body value
-              false
               AST(value) if eval("this") instanceof $name then eval("this") else { extends $prototype }), value)
             init.unshift AST(node) let $name as (-> $name) = $constructor
             @noop()
@@ -3057,14 +3053,12 @@ macro class
               constructor := @rewrap(@func(
                 @func-params constructor
                 @func-body constructor
-                false
                 AST(constructor) if eval("this") instanceof $name then eval("this") else { extends $prototype }), value)
               ASTE(node) $ctor := __curry $first-arg, $constructor
             else if @is-func value
               let constructor = @rewrap(@func(
                 @func-params value
                 @func-body value
-                false
                 AST(constructor) if eval("this") instanceof $name then eval("this") else { extends $prototype }), value)
               ASTE(node) $ctor := $constructor
             else
@@ -3707,7 +3701,6 @@ macro promise!
   syntax sync as ("(", this as Expression, ")")?, body as GeneratorBody
     let func = @rewrap(@func([]
       @auto-return(body)
-      false
       true
       null
       true), body)

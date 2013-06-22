@@ -339,13 +339,13 @@ class MacroContext
       func
       ...(for arg in args; @do-wrap(arg))).reduce(@parser)
   
-  def func(mutable params, body as Node, auto-return as Boolean = true, bound as (Node|Boolean) = false, as-type as Node|void, generator as Boolean)
+  def func(mutable params, body as Node, bound as (Node|Boolean) = false, as-type as Node|void, generator as Boolean)
     let scope = @parser.push-scope(true)
     params := for param in params
       let p = param.rescope scope
       add-param-to-scope scope, p
       p
-    let func = FunctionNode(body.index, scope.parent, params, body.rescope(scope), false, bound, as-type, generator).reduce(@parser)
+    let func = FunctionNode(body.index, scope.parent, params, body.rescope(scope), bound, as-type, generator).reduce(@parser)
     @parser.pop-scope()
     func
   
