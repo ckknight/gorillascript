@@ -1497,8 +1497,23 @@ let translators =
         param-idents.push param.ident
         initializers.push ...param.init
 
+      let convert-auto-return = if node.bound instanceof ParserNode
+        #(node) node.args[0]
+      else
+        #(node)
+          LispyNode.Call node.index, node.scope,
+            LispyNode.Symbol.return(node.index)
+            node.args[0]
+      let translate-auto-return(mutable node)
+        if node instanceof ParserNode.Function
+          return node
+        if node instanceof LispyNode and node.is-internal-call \auto-return
+          node := convert-auto-return(node)
+
+        node.walk translate-auto-return
+      
       let unassigned = {}
-      let {mutable body, wrap} = translate-function-body(get-pos(node), node.generator, inner-scope, if node.auto-return then LispyNode.InternalCall(\return, node.body.index, node.body.scope, node.body) else node.body, unassigned)
+      let {mutable body, wrap} = translate-function-body(get-pos(node), node.generator, inner-scope, translate-auto-return(node.body), unassigned)
       inner-scope.release-tmps()
       body := ast.Block get-pos(node.body), [...initializers, body]
       if inner-scope.used-this or node.bound instanceof ParserNode
@@ -1612,8 +1627,9 @@ let translate-lispy-internal =
       LispyNode.Call args[0].index, args[0].scope,
         ParserNode.Function args[0].index, inner-scope,
           []
-          args[0].rescope(inner-scope)
-          true
+          LispyNode.InternalCall \auto-return, args[0].index, inner-scope,
+            args[0].rescope(inner-scope)
+          false
           true
     else
       args[0]
@@ -2047,7 +2063,10 @@ let translate-root(mutable roots as Object, mutable scope as Scope, mutable get-
   if not is-array! get-position
     get-position := [get-position]
   if roots.length == 0
-    roots.push { type: "Root", line: 0, column: 0, body: { type: "Nothing", line: 0, column: 0 } }
+    return ast.Root { line: 0, column: 0 },
+      ast.Noop { line: 0, column: 0 }
+      []
+      []
 
   let split-comments(mutable body)
     let comments = []

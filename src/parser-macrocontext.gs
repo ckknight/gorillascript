@@ -200,6 +200,14 @@ class MacroContext
   def is-continue(mutable node)
     node := @real(node)
     node instanceof LispyNode and node.is-internal-call(\continue)
+  def is-return(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-internal-call(\return)
+  def is-auto-return(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-internal-call(\auto-return)
+  def auto-return(node)
+    LispyNode.InternalCall \auto-return, node.index, node.scope, node
   def label(mutable node)
     node := @real(node)
     if node instanceof LispyNode and node.is-internal-call(\break, \continue, \label)
@@ -337,7 +345,7 @@ class MacroContext
       let p = param.rescope scope
       add-param-to-scope scope, p
       p
-    let func = FunctionNode(body.index, scope.parent, params, body.rescope(scope), auto-return, bound, as-type, generator).reduce(@parser)
+    let func = FunctionNode(body.index, scope.parent, params, body.rescope(scope), false, bound, as-type, generator).reduce(@parser)
     @parser.pop-scope()
     func
   
@@ -348,9 +356,6 @@ class MacroContext
   def func-params(mutable node)
     node := @real node
     if @is-func node then node.params
-  def func-is-auto-return(mutable node)
-    node := @real node
-    if @is-func node then not not node.auto-return
   def func-is-bound(mutable node)
     node := @real node
     if @is-func node then not not node.bound and node.bound not instanceof Node

@@ -999,7 +999,7 @@ macro do
             values.push locals.rest[i].value
           f i + 1
       f 0
-    @call(@func(params, body, true, true), values)
+    @call(@func(params, @auto-return(body), false, true), values)
 
 macro with
   syntax node as Expression, body as (Body | (";", this as Statement))
@@ -2037,7 +2037,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         $init
         void
         $body
-      @func-is-auto-return(node) and not @is-nothing(body)
+      false
       @func-is-bound(node)
       @func-as-type(node)
       @func-is-generator(node)), node)
@@ -2478,7 +2478,7 @@ macro once!(func, silent-fail)
         else
           $ran := true
         $body
-      @func-is-auto-return func
+      false
       @func-is-bound func
       @func-as-type func
       @func-is-generator func))
@@ -2495,7 +2495,7 @@ macro async
   syntax params as (head as Parameter, tail as (",", this as Parameter)*)?, "<-", call as Expression, body as DedentedBody
     body ?= @noop()
     params := if params then [params.head].concat(params.tail) else []
-    let func = @func(params, body, true, true)
+    let func = @func(params, @auto-return(body), false, true)
     
     if @is-context-call(call)
       call := @real(call)
@@ -2517,6 +2517,8 @@ macro async!
     
     body ?= @noop()
     
+    body := @auto-return body
+
     let error = @tmp \e, false
     params := [@param(error)].concat(params)
     let func = @func params,
@@ -2529,7 +2531,7 @@ macro async!
           if $error?
             return $callback $error
           $body
-      true
+      false
       true
     if @is-context-call(call)
       call := @real(call)
@@ -3704,8 +3706,8 @@ macro promise!
   
   syntax sync as ("(", this as Expression, ")")?, body as GeneratorBody
     let func = @rewrap(@func([]
-      body
-      true
+      @auto-return(body)
+      false
       true
       null
       true), body)

@@ -78,7 +78,12 @@ class Node
       let inner-scope = parser.push-scope(true, @scope)
       let LispyNode = require('./parser-lispynodes')
       let result = LispyNode.Call @index, @scope,
-        FunctionNode(@index, @scope, [], @rescope(inner-scope), true, true)
+        FunctionNode @index, @scope,
+          []
+          LispyNode.InternalCall \return, @index, inner-scope,
+            @rescope(inner-scope)
+          false
+          true
       parser.pop-scope()
       result
     else
@@ -198,7 +203,7 @@ macro node-class
       walk-args := @array walk-args
       let walk-func = @func [@param(ASTE f), @param(ASTE context)], AST
         $walk-init
-        if $walk-check
+        return if $walk-check
           $type @index, @scope, ...$walk-args
         else
           this
@@ -262,13 +267,15 @@ node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Bool
     else if @generator
       Type.generator
     else
-      let mutable return-type = if @auto-return
+      @body.return-type(o, true).function()
+      /*
+      if @auto-return
         @body.type(o)
       else
         Type.undefined
       let LispyNode = require('./parser-lispynodes')
       let walker(node)
-        if node instanceof LispyNode and node.is-internal-call(\return)
+        if node instanceof LispyNode and (node.is-internal-call(\return) or node.is-internal-call(\auto-return))
           return-type := return-type.union node.args[0].type(o)
           node
         else if node instanceof FunctionNode
@@ -284,8 +291,14 @@ node-class FunctionNode(params as [Node] = [], body as Node, auto-return as Bool
           node.walk walker
       walker @body
       return-type.function()
+      */
   def _is-noop(o) -> true
   def _to-JSON() -> [@params, @body, @auto-return, ...simplify-array [@bound, @as-type, @generator]]
+  def return-type(o, is-last)
+    if is-last
+      Type.undefined
+    else
+      Type.none
 node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in-statement as Boolean, in-generator as Boolean, in-evil-ast as Boolean, do-wrapped as Boolean)
   def type(o) -> @_type ?=
     let type = o.macros.get-type-by-id(@id)
@@ -366,5 +379,21 @@ node-class MacroAccessNode(id as Number, call-line as Number, data as Object, in
       MacroAccessNode @index, @scope, @id, @call-line, @data, @in-statement, @in-generator, @in-evil-ast, true
   def mutate-last(o, func, context, include-noop)
     o.macro-expand-1(this).mutate-last(o, func, context, include-noop)
+  def return-type(o, is-last)
+    // this is all a really hacky way of figuring out the return type without having to macro-expand
+    if @data.macro-name in [\return, "return?"] // FIXME: so ungodly hackish
+      if @data.macro-data.node
+        @data.macro-data.node.type(o)
+      else
+        Type.undefined
+    else
+      let mutable type = if is-last
+        Type.undefined
+      else
+        Type.none
+      @walk #(node)
+        type := type.union node.return-type(o, false)
+        node
+      type
 
 module.exports := Node

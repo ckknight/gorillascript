@@ -39,6 +39,12 @@ class Node extends OldNode
   def do-wrap-args = true
   def convert-nothing() -> this
 
+  def return-type(parser, is-last)
+    if is-last
+      Type.undefined
+    else
+      Type.none
+
 /**
  * Represents a constant primitive value such as a number, string, boolean,
  * void, or null.
@@ -511,6 +517,16 @@ class Symbol extends Node
           #(call, parser)
             cache-get-or-add! cache, call, for every element in call.args; element.is-noop(parser)
       }
+      auto-return: {
+        -do-wrap-args
+        validate-args(node as OldNode, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to return"
+        +is-goto
+        +used-as-statement
+        _return-type(call, parser, is-last)
+          call.args[0].return-type(parser, false).union call.args[0].type(parser)
+      }
       block: {
         -do-wrap-args
         _type: do
@@ -525,6 +541,9 @@ class Symbol extends Node
                 for node in args[0 til -1]
                   node.type(parser)
                 args[* - 1].type(parser)
+        _return-type(call, parser, is-last)
+          for reduce arg, i, len in call.args, current = Type.none
+            current.union arg.return-type(parser, is-last and i == len - 1)
         _with-label(call, label, parser)
           let args = call.args
           let len = args.length
@@ -650,6 +669,9 @@ class Symbol extends Node
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to for"
         +used-as-statement
+        _return-type(call, parser, is-last)
+          let type = if is-last then Type.undefined else Type.none
+          type.union call.args[3].return-type(parser, false)
       }
       for-in: {
         -do-wrap-args
@@ -657,6 +679,9 @@ class Symbol extends Node
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to for-in"
         +used-as-statement
+        _return-type(call, parser, is-last)
+          let type = if is-last then Type.undefined else Type.none
+          type.union call.args[2].return-type(parser, false)
       }
       function: {}
       if: {
@@ -668,6 +693,8 @@ class Symbol extends Node
           let cache = Cache<Call, Type>()
           #(call, parser)
             cache-get-or-add! cache, call, call.args[1].type(parser).union(call.args[2].type(parser))
+        _return-type(call, parser, is-last)
+          call.args[1].return-type(parser, is-last).union call.args[2].return-type(parser, is-last)
         _is-statement: do
           let cache = Cache<Call, Boolean>()
           #(call)
@@ -846,12 +873,14 @@ class Symbol extends Node
             throw Error "Too many arguments to param"
       }
       return: {
-        -do-wrap-args // maybe this should be true
+        -do-wrap-args
         validate-args(node as OldNode, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to return"
         +is-goto
         +used-as-statement
+        _return-type(call, parser)
+          call.args[0].return-type(parser, false).union call.args[0].type(parser)
       }
       root: {
         -do-wrap-args
@@ -886,7 +915,14 @@ class Symbol extends Node
                 unless args[i + 1].const-value()
                   current := current.union args[i].type(parser)
               // default-case
-              current.union args[* - 1].type(parser)
+              current.union args[len - 1].type(parser)
+        _return-type(call, parser, is-last)
+          let args = call.args
+          let len = args.length
+          let mutable current = Type.none
+          for i in 2 til len - 1 by 3
+            current := current.union args[i].return-type(parser, false)
+          current.union args[len - 1].return-type(parser, is-last)
         _mutate-last(call, parser, mutator, context, include-noop)
           let args = call.args
           let len = args.length
@@ -942,6 +978,8 @@ class Symbol extends Node
             throw Error "Too many arguments to throw"
         _type()
           Type.none
+        _return-type()
+          Type.none
         +is-goto
         +used-as-statement
         _do-wrap(call, parser)
@@ -956,6 +994,8 @@ class Symbol extends Node
         validate-args(node as OldNode, ...tmp-ids as [Value]) ->
         _type(call, parser)
           call.args[0].type parser
+        _return-type(call, parser, is-last)
+          call.args[0].return-type parser, is-last
         _with-label(call, label, parser)
           let labelled = call.args[0].with-label label, parser
           if labelled != call.args[0]
@@ -996,6 +1036,8 @@ class Symbol extends Node
           let cache = Cache<Call, Type>()
           #(call, parser)
             cache-get-or-add! cache, call, call.args[0].type(parser).union(call.args[2].type(parser))
+        _return-type(call, parser, is-last)
+          call.args[0].return-type(parser, is-last).union call.args[2].return-type(parser, is-last)
         _mutate-last(call, parser, mutator, context, include-noop)
           let try-body = call.args[0].mutate-last(parser, mutator, context, include-noop)
           let catch-body = call.args[2].mutate-last(parser, mutator, context, include-noop)
@@ -1020,6 +1062,8 @@ class Symbol extends Node
         +used-as-statement
         _type(call, parser)
           call.args[0].type parser
+        _return-type(call, parser, is-last)
+          call.args[0].return-type(parser, false).union call.args[1].return-type(parser, is-last)
         _mutate-last(call, parser, mutator, context, include-noop)
           let try-body = call.args[0].mutate-last(parser, mutator, context, include-noop)
           if try-body != call.args[0]
@@ -2212,6 +2256,16 @@ class Call extends Node
   def _type(call, parser)
     if is-function! @func.__type
       @func.__type this, call, parser
+
+  def return-type(parser, is-last)
+    let reduced = @reduce(parser)
+    if reduced == this
+      let func = @func
+      if is-function! func._return-type
+        return? func._return-type this, parser, is-last
+      super.return-type(parser, is-last)
+    else
+      reduced.return-type(parser, is-last)
   
   def _reduce(parser)
     let mutable reduced = @walk #(x) -> x.reduce(this), parser
@@ -2291,7 +2345,13 @@ class Call extends Node
       @func._do-wrap(this, parser)
     else if @is-statement()
       let inner-scope = parser.push-scope(true, @scope)
-      let result = Call @index, @scope, OldNode.Function @index, @scope, [], @rescope(inner-scope), true, true
+      let result = Call @index, @scope,
+        OldNode.Function @index, @scope, [],
+          Call @index, inner-scope,
+            Symbol.auto-return @index
+            @rescope(inner-scope)
+          false
+          true
       parser.pop-scope()
       result
     else

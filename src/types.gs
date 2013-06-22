@@ -946,8 +946,10 @@ module.exports := class Type
           ast.Access pos, ident, ast.Const pos, k
       else
         ast.Call pos,
-          ast.Access pos, ident, ast.Const pos, \complement
-          [@complement().to-ast ast, pos, ident]
+          ast.Access pos,
+            @complement().to-ast ast, pos, ident
+            ast.Const pos, \complement
+          []
     
     def to-JSON()
       for first k, v of Type
