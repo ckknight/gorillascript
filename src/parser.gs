@@ -20,8 +20,6 @@ const EMBED_CLOSE_COMMENT_DEFAULT = "--%>"
 const EMBED_OPEN_LITERAL_DEFAULT = "<%@"
 const EMBED_CLOSE_LITERAL_DEFAULT = "@%>"
 
-let MacroAccessNode = Node.MacroAccess
-
 let is-nothing(node)
   node instanceof LSymbol.nothing
 
@@ -5297,7 +5295,7 @@ class Parser
         LInternalCall \function, index, scope,
           LInternalCall \array, index, scope,
             params
-            ...for name in [\__wrap, \__node, \__const, \__value, \__symbol, \__call]
+            ...for name in [\__wrap, \__node, \__const, \__value, \__symbol, \__call, \__macro]
               LInternalCall \param, index, scope,
                 LSymbol.ident index, scope, name
                 LSymbol.nothing index // default-value
@@ -5861,9 +5859,9 @@ class Parser
           void
         else
           remove-noops(item)
-    else if obj instanceof Node
+    else if obj instanceofsome [Node, Type]
       obj
-    else if is-object! obj and obj not instanceof RegExp
+    else if is-object! obj and obj.constructor == Object
       let result = {}
       for k, v of obj
         if not is-nothing(v)
@@ -5881,7 +5879,12 @@ class Parser
     let macros = @macros
     let mutator = #(data, parser, index)
       if parser.in-ast.peek() or not parser.expanding-macros
-        parser.MacroAccess index, macro-id, parser.get-line(index), remove-noops(data), parser.position.peek() == \statement, parser.in-generator.peek(), parser.in-evil-ast.peek()
+        LispyNode.MacroAccess index, parser.scope.peek(),
+          macro-id
+          remove-noops(data)
+          parser.position.peek() == \statement
+          parser.in-generator.peek()
+          parser.in-evil-ast.peek()
       else
         throw Error "Cannot use macro until fully defined"
     for m in macros.get-or-add-by-names @current-macro
@@ -5895,7 +5898,12 @@ class Parser
   let handle-macro-syntax(index, type, handler as Function, rule, params, options, mutable macro-id)
     let mutator = #(data, parser, index)
       if parser.in-ast.peek() or not parser.expanding-macros
-        parser.MacroAccess index, macro-id, parser.get-line(index), remove-noops(data), parser.position.peek() == \statement, parser.in-generator.peek(), parser.in-evil-ast.peek()
+        LispyNode.MacroAccess index, parser.scope.peek(),
+          macro-id
+          remove-noops(data)
+          parser.position.peek() == \statement
+          parser.in-generator.peek()
+          parser.in-evil-ast.peek()
       else
         let scope = parser.push-scope(false)
         let macro-context = MacroContext parser, index, parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
@@ -5906,7 +5914,7 @@ class Parser
             throw parser.build-error "Trying to assign with $(data.op) to immutable variable '$(macro-context.name data.left)'", data.left
         let mutable result = void
         try
-          result := handler@ macro-context, remove-noops(data), macro-context@.wrap, macro-context@.node, macro-context@.get-const, macro-context@.make-lispy-value, macro-context@.make-lispy-symbol, macro-context@.make-lispy-call
+          result := handler@ macro-context, remove-noops(data), macro-context@.wrap, macro-context@.node, macro-context@.get-const, macro-context@.make-lispy-value, macro-context@.make-lispy-symbol, macro-context@.make-lispy-call, macro-context@.macro
         catch e as ReferenceError
           throw e
         catch e as MacroError
@@ -6033,9 +6041,9 @@ class Parser
   def macro-expand-1(mutable node)
     if node._macro-expanded?
       return node._macro-expanded
-    else if node instanceof MacroAccessNode
+    else if node instanceof LispyNode.MacroAccess
       let nodes = []
-      while node instanceof MacroAccessNode
+      while node instanceof LispyNode.MacroAccess
         nodes.push node
         @position.push if node.in-statement then \statement else \expression
         @in-generator.push node.in-generator
@@ -6083,7 +6091,7 @@ class Parser
     let walker = with-delay #(node, callback)
       if node._macro-expand-alled?
         callback null, node._macro-expand-alled
-      else if node not instanceof MacroAccessNode
+      else if node not instanceof LispyNode.MacroAccess
         async! callback, walked <- node.walk-async walker, this
         callback null, (walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked)
       else
@@ -6104,7 +6112,7 @@ class Parser
   let macro-expand-all-walker(node)
     if node._macro-expand-alled?
       node._macro-expand-alled
-    else if node not instanceof MacroAccessNode
+    else if node not instanceof LispyNode.MacroAccess
       let walked = node.walk macro-expand-all-walker, this
       walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked
     else

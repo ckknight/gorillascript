@@ -21,6 +21,7 @@ class Node extends OldNode
   def is-value = false
   def is-symbol = false
   def is-call = false
+  def is-macro-access = false
   
   def is-noop
   def is-const() -> false
@@ -65,7 +66,7 @@ class Value extends Node
   def is-const-type(type) -> type == typeof @value
   
   def equals(other)
-    other instanceof Value and @value is other.value
+    other == this or (other instanceof Value and @value is other.value)
   
   def type()
     let value = @value
@@ -340,16 +341,10 @@ class Symbol extends Node
                 Symbol.access node.index
                 cached-parent ? parent
                 Value node.index, \length
+            else if node instanceof Node and node.is-internal-call(\access)
+              node
             else
-              let mutable result = node
-              if node instanceof Node and node.is-internal-call(\access)
-                let node-parent = replace-length-ident node.args[0].reduce(parser)
-                if node-parent != node.args[0]
-                  result := Call node.index, node.scope,
-                    Symbol.access node.index
-                    node-parent
-                    node.args[1]
-              result.walk replace-length-ident
+              node.walk replace-length-ident
           let child = replace-length-ident call.args[1].reduce(parser)
           if cached-parent?
             return Call call.index, call.scope,
@@ -1135,7 +1130,7 @@ class Symbol extends Node
         @display-name := "Symbol.$name"
         
         def equals(other)
-          other instanceof Symbol_name
+          other == this or other instanceof Symbol_name
         def [is-name-key] = true
         for k, v of data
           def [k] = v
@@ -1153,7 +1148,7 @@ class Symbol extends Node
       "Symbol.ident($(to-JS-source @name))"
     
     def equals(other)
-      other instanceof Ident and @scope == other.scope and @name == other.name
+      other == this or (other instanceof Ident and @scope == other.scope and @name == other.name)
 
     def type(parser)
       let name = @name
@@ -1267,7 +1262,7 @@ class Symbol extends Node
       "Symbol.tmp($(@id), $(to-JS-source @name))"
     
     def equals(other)
-      other instanceof Tmp and @scope == other.scope and @id == other.id
+      other == this or (other instanceof Tmp and @scope == other.scope and @id == other.id)
     
     def type(parser)
       @scope.type(this)
@@ -1287,7 +1282,7 @@ class Symbol extends Node
     def is-assign = false
     
     def equals(other)
-      other instanceof @constructor
+      other == this or (other instanceof @constructor)
     
     class BinaryOperator extends Operator
       def constructor()
@@ -2232,6 +2227,8 @@ class Call extends Node
   
   def is-call = true
   def node-type = \call
+
+  def cachable = true
   
   def inspect(depth)
     let depth-1 = if depth? then depth - 1 else null
@@ -2246,6 +2243,8 @@ class Call extends Node
     sb.join ""
   
   def equals(other)
+    if other == this
+      return true
     unless other instanceof Call and @func.equals(other.func)
       false
     else
@@ -2423,10 +2422,208 @@ let InternalCall(internal-name, index, scope, ...args)
     Symbol[internal-name] index
     ...args
 
+class MacroAccess extends Node
+  def constructor(@index as Number, @scope, @id as Number, @data as {}, @in-statement as Boolean, @in-generator as Boolean, @in-evil-ast as Boolean, @do-wrapped as Boolean) ->
+
+  def is-macro-access = true
+  def node-type = \macro-access
+
+  def cacheable = true
+
+  def inspect(depth)
+    let depth-1 = if depth? then depth - 1 else null
+    let sb = []
+    sb.push "MacroAccess("
+    sb.push "\n  id: "
+    sb.push @id
+    sb.push "\n  data: "
+    let {inspect} = require('util')
+    sb.push inspect(@data, null, depth-1).split("\n").join("\n  ")
+    for key in [\in-statement, \in-generator, \in-evil-ast, \do-wrapped]
+      if this[key]
+        sb.push "\n  "
+        sb.push key
+        sb.push ": true"
+    sb.push ")"
+    sb.join ""
+  
+  def equals = do
+    let object-eql(left, right)
+      let left-keys = keys! left
+      let right-keys = keys! right
+      if array-eql(left-keys, right-keys)
+        for every key in left-keys
+          item-eql left[key], right[key]
+      else
+        false
+    let array-eql(left, right)
+      let len = left.length
+      if right.length != len
+        false
+      else
+        for every i in 0 til len
+          item-eql left[i], right[i]
+    let item-eql(left, right)
+      if left == right
+        true
+      else if left instanceof Node
+        right instanceof Node and left.equals(right)
+      else if is-array! left
+        array-eql left, right
+      else if is-object! left
+        object-eql left, right
+      else
+        false
+    #(other)
+      if other == this
+        true
+      else if other instanceof MacroAccess
+        unless @in-statement == other.in-statement and @in-generator == other.in-generator and @in-evil-ast == other.in-evil-ast and @do-wrapped == other.do-wrapped
+          false
+        else
+          object-eql @data, other.data
+      else
+        false
+
+  def type = do
+    let cache = Cache<MacroAccess, Type>()
+    #(parser)
+      cache-get-or-add! cache, this, do
+        let type = parser.macros.get-type-by-id @id
+        if type?
+          if is-string! type
+            @data[type].type parser
+          else
+            type
+        else
+          parser.macro-expand-1(this).type parser
+
+  def with-label(label, parser)
+    parser.macro-expand-1(this).with-label label, parser
+
+  def reduce() this
+
+  def walk = do
+    let walk-array(array, func, context)
+      let result = []
+      let mutable changed = false
+      for item in array
+        let new-item = walk-item item, func, context
+        if not changed and new-item != item
+          changed := true
+        result.push item
+      if changed
+        result
+      else
+        array
+    let walk-object(obj, func, context)
+      let result = {}
+      let mutable changed = false
+      for k, v of obj
+        let new-v = walk-item v, func, context
+        if not changed and new-v != v
+          changed := true
+        result[k] := new-v
+      if changed
+        result
+      else
+        obj
+    let walk-item(item, func, context)
+      if item instanceof OldNode
+        func@(context, item) ? item.walk(func, context)
+      else if is-array! item
+        walk-array item, func, context
+      else if is-object! item
+        walk-object item, func, context
+      else
+        item
+    #(func, context)
+      let data = walk-item(@data, func, context)
+      if data != @data
+        MacroAccess @index, @scope, @id, data, @in-statement, @in-generator, @in-evil-ast, @do-wrapped
+      else
+        this
+  def walk-async = do
+    let walk-array(array, func, context, callback)
+      let mutable changed = false
+      let result = []
+      asyncfor err <- next, item in array
+        async! next, new-item <- walk-item item, func, context
+        if not changed and item != new-item
+          changed := true
+        result.push new-item
+        next null
+      if err?
+        callback err
+      else
+        callback null, if changed then result else array
+    let walk-object(obj, func, context, callback)
+      let mutable changed = false
+      let result = {}
+      asyncfor err <- next, k, v of obj
+        async! next, new-v <- walk-item v, func, context
+        if not changed and v != new-v
+          changed := true
+        result[k] := new-v
+        next null
+      if err?
+        callback err
+      else
+        callback null, if changed then result else obj
+    let walk-item(item, func, context, callback)
+      if item instanceof Node
+        func item, context, #(err, value)
+          if err
+            callback err
+          else
+            callback null, value ? item
+      else if is-array! item
+        walk-array item, func, context, callback
+      else if is-object! item
+        walk-object item, func, context, callback
+      else
+        callback null, item
+    #(func, context, callback)
+      async! callback, data <- walk-item @data, func, context
+      callback null, if data != @data
+        MacroAccess @index, @scope, @id, data, @in-statement, @in-generator, @in-evil-ast, @do-wrapped
+      else
+        this
+
+  def is-noop(parser)
+    parser.macro-expand-1(this).is-noop(parser)
+
+  def do-wrap()
+    if @do-wrapped
+      this
+    else
+      MacroAccess @index, @scope, @id, @data, @in-statement, @in-generator, @in-evil-ast, true
+
+  def mutate-last(parser, func, context, include-noop)
+    parser.macro-expand-1(this).mutate-last(parser, func, context, include-noop)
+
+  def return-type(parser, is-last)
+    // this is all a really hacky way of figuring out the return type without having to macro-expand
+    if @data.macro-name in [\return, "return?"] // FIXME: so ungodly hackish
+      if @data.macro-data.node
+        @data.macro-data.node.type(parser)
+      else
+        Type.undefined
+    else
+      let mutable type = if is-last
+        Type.undefined
+      else
+        Type.none
+      @walk #(node)
+        type := type.union node.return-type(parser, false)
+        node
+      type
+
 module.exports := Node <<< {
   Value
   Symbol
   Call
+  MacroAccess
   InternalCall
   Access: #(index, scope, parent, ...children)
     for reduce child in children, current = parent

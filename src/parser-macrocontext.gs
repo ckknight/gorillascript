@@ -6,8 +6,6 @@ require! Type: './types'
 require! Scope: './parser-scope'
 let {node-to-type, add-param-to-scope} = require './parser-utils'
 
-let MacroAccessNode = Node.MacroAccess
-
 let Tmp = LispyNode.Symbol.tmp
 let Ident = LispyNode.Symbol.ident
 
@@ -745,6 +743,16 @@ class MacroContext
             constify-object position, obj.func, index, scope
             ...(for arg in obj.args
               constify-object position, arg, index, scope)
+      case \macro-access
+        LispyNode.Call obj.index, scope,
+          Ident obj.index, scope, \__macro
+          position or LispyNode.Value obj.index, void
+          LispyNode.Value obj.index, obj.id
+          constify-object position, obj.data, obj.index, scope
+          LispyNode.Value obj.index, obj.in-statement
+          LispyNode.Value obj.index, obj.in-generator
+          LispyNode.Value obj.index, obj.in-evil-ast
+          LispyNode.Value obj.index, obj.do-wrapped
     else if obj instanceof Node
       if obj.constructor == Node
         throw Error "Cannot constify a raw node"
@@ -806,9 +814,10 @@ class MacroContext
     else
       @index
     LispyNode.Call index, @scope(), func, ...args
-  
+
   def node(type-id as Number, from-position, ...args)
-    if type-id == ParserNodeType.MacroAccess
+    throw Error "node is deprecated"
+    if type-id == x//ParserNodeType.MacroAccess
       @macro from-position, ...args
     else
       let index = if from-position and is-number! from-position.index
@@ -847,12 +856,12 @@ class MacroContext
   def get-const(name as String)
     to-literal-node@ this, @get-const-value(name)
   
-  def macro(from-position, id, call-line, data, position, in-generator, in-evil-ast)
+  def macro(from-position, id, data, position, in-generator, in-evil-ast)
     let index = if from-position and is-number! from-position.index
       from-position.index
     else
       @index
-    Node.MacroAccess(index, @scope(), id, call-line, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)
+    LispyNode.MacroAccess(index, @scope(), id, data, position, in-generator or @parser.in-generator.peek(), in-evil-ast).reduce(@parser)
   
   let walk(node, func)
     if not is-object! node or node instanceof RegExp
