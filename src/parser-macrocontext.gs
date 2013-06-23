@@ -4,6 +4,7 @@ require! LispyNode: './parser-lispynodes'
 require! Type: './types'
 require! Scope: './parser-scope'
 let {node-to-type, add-param-to-scope} = require './parser-utils'
+let {Cache} = require './utils'
 
 let Tmp = LispyNode.Symbol.tmp
 let Ident = LispyNode.Symbol.ident
@@ -159,32 +160,29 @@ class MacroContext
       node
   
   def rewrap(new-node, mutable old-node)
-    old-node := @macro-expand-1(old-node)
-    if old-node instanceof LispyNode and old-node.is-internal-call(\tmp-wrapper)
-      if new-node instanceof LispyNode and new-node.is-internal-call(\tmp-wrapper)
-        LispyNode.InternalCall \tmp-wrapper, new-node.index, new-node.scope,
-          new-node.args[0]
-          ...old-node.args[1 to -1]
-          ...new-node.args[1 to -1]
+    if new-node instanceof LispyNode
+      if old-node not instanceof LispyNode
+        throw TypeError "Expected oldNode to be a LispyNode, got $(typeof! old-node)"
+      old-node := @macro-expand-1(old-node)
+      if old-node.is-internal-call(\tmp-wrapper)
+        if new-node.is-internal-call(\tmp-wrapper)
+          LispyNode.InternalCall \tmp-wrapper, new-node.index, new-node.scope,
+            new-node.args[0]
+            ...old-node.args[1 to -1]
+            ...new-node.args[1 to -1]
+        else
+          LispyNode.InternalCall \tmp-wrapper, new-node.index, new-node.scope,
+            new-node
+            ...old-node.args[1 to -1]
       else
-        LispyNode.InternalCall \tmp-wrapper, new-node.index, new-node.scope,
-          new-node
-          ...old-node.args[1 to -1]
+        new-node
     else
       new-node
   
   def eq(mutable alpha, mutable bravo)
     alpha := @real alpha
     bravo := @real bravo
-    if alpha instanceof LispyNode
-      if alpha.is-value and bravo.is-value
-        alpha.value == bravo.value
-      else
-        false
-    else if alpha instanceof Ident
-      bravo instanceof Ident and alpha.name == bravo.name
-    else
-      false
+    alpha == bravo or (alpha instanceof LispyNode and alpha.equals(bravo))
   
   def is-label(mutable node)
     node := @real(node)
@@ -407,7 +405,7 @@ class MacroContext
     node := @real node
     if @is-param node
       let default-value = node.args[1]
-      if default-value instanceof LispyNode and default-value.is-symbol and default-value.is-internal and default-value.is-nothing
+      if default-value.is-symbol and default-value.is-internal and default-value.is-nothing
         null
       else
         default-value
@@ -421,7 +419,7 @@ class MacroContext
     node := @real node
     if @is-param node
       let as-type = node.args[4]
-      if as-type instanceof LispyNode and as-type.is-symbol and as-type.is-internal and as-type.is-nothing
+      if as-type.is-symbol and as-type.is-internal and as-type.is-nothing
         null
       else
         as-type
@@ -447,15 +445,16 @@ class MacroContext
     node instanceof LispyNode and node.is-internal-call(\object)
   def pairs(mutable node)
     node := @real node
-    if node instanceof LispyNode and node.is-internal-call(\type-object)
-      return for i in 0 til node.args.length by 2
-        { key: node.args[i], value: node.args[i + 1] }
-    else if node instanceof LispyNode and node.is-internal-call(\object)
-      return for array in node.args[1 to -1]
-        let pair = { key: array.args[0], value: array.args[1] }
-        if array.args[2]
-          pair.property := array.args[2].const-value()
-        pair
+    if node instanceof LispyNode
+      if node.is-internal-call(\type-object)
+        return for i in 0 til node.args.length by 2
+          { key: node.args[i], value: node.args[i + 1] }
+      else if node.is-internal-call(\object)
+        return for array in node.args[1 to -1]
+          let pair = { key: array.args[0], value: array.args[1] }
+          if array.args[2]
+            pair.property := array.args[2].const-value()
+          pair
   
   def is-block(mutable node)
     node := @real(node)
@@ -468,13 +467,13 @@ class MacroContext
   def array(elements as [LispyNode])
     LispyNode.InternalCall(\array, @index, @scope(),
       ...(for element in elements; @do-wrap(element))).reduce(@parser)
-  def object(pairs as [{ key: LispyNode, value: LispyNode }], prototype as LispyNode|null)
+  def object(pairs as [], prototype as LispyNode|null)
     let array-pairs = for pair, i in pairs
       if pair instanceof LispyNode
         if pair.is-internal-call(\array)
           if pair.args.length not in [2, 3]
             throw Error "Expected object pair #$i to have a length of 2 or 3, got $(pair.args.length)"
-          if pair.args.length == 3 and (pair.args[2] not instanceof LispyNode or not pair.args[2].is-const-type(\string))
+          if pair.args.length == 3 and not pair.args[2].is-const-type(\string)
             throw Error "Expected object pair #$i to have a constant property type, got $(typeof! pair.args[2])"
           pair
         else
@@ -514,7 +513,7 @@ class MacroContext
     if not node?
       false
     else if node instanceof LispyNode
-      node.is-call
+      node.cacheable
     else
       true
   
@@ -578,21 +577,19 @@ class MacroContext
     node instanceof LispyNode and node.is-unary-call()
   def op(mutable node)
     node := @real node
-    if @is-assign(node)
-      node.op
-    else if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-operator
+    if node instanceof LispyNode and node.is-call and node.func.is-symbol and node.func.is-operator
       node.func.name
   def left(mutable node)
     node := @real node
-    if node instanceof LispyNode and node.is-binary-call()
+    if node instanceof LispyNode and (node.is-binary-call() or node.is-assign-call())
       node.args[0]
   def right(mutable node)
     node := @real node
-    if node instanceof LispyNode and node.is-binary-call()
+    if node instanceof LispyNode and (node.is-binary-call() or node.is-assign-call())
       node.args[1]
   def unary-node(mutable node)
     node := @real node
-    if @is-unary(node)
+    if node instanceof LispyNode and node.is-unary-call()
       node.args[0]
 
   def is-access(mutable node)
@@ -664,12 +661,13 @@ class MacroContext
   def empty(node)
     if not node?
       true
-    else if node not instanceof LispyNode
-      false
-    else if node.is-internal-call(\block)
-      for every item in node.args by -1; @empty(item)
+    else if node instanceof LispyNode
+      if node.is-internal-call(\block)
+        for every item in node.args by -1; @empty(item)
+      else
+        @is-nothing(node)
     else
-      @is-nothing(node)
+      false
   
   let constify-object(position, obj, index, scope as Scope)
     if obj == null or typeof obj in [\string, \number, \boolean, \undefined]
@@ -683,19 +681,6 @@ class MacroContext
       LispyNode.InternalCall \array, index, scope,
         ...(for item in obj
           constify-object position, item, index, scope)
-    else if obj instanceof Ident and obj.name.length > 1 and obj.name.char-code-at(0) == '$'.char-code-at(0)
-      LispyNode.Call obj.index, scope,
-        Ident obj.index, scope, \__wrap
-        Ident obj.index, scope, obj.name.substring 1
-    else if obj instanceof LispyNode.Call and obj.func instanceof Ident and obj.func.name == '$'
-      if obj.args.length != 1
-        throw Error "Can only use \$() in an AST if it has one argument."
-      let arg = obj.args[0]
-      if arg instanceof LispyNode and arg.is-internal-call(\spread)
-        throw Error "Cannot use ... in \$() in an AST."
-      LispyNode.Call obj.index, scope,
-        Ident obj.index, scope, \__wrap
-        arg
     else if obj instanceof LispyNode
       switch obj.node-type
       case \value
@@ -704,37 +689,51 @@ class MacroContext
           position or LispyNode.Value obj.index, void
           obj
       case \symbol
-        LispyNode.Call obj.index, scope,
-          Ident obj.index, scope, \__symbol
-          position or LispyNode.Value obj.index, void
-          ...(switch
-          case obj.is-ident
-            [
-              LispyNode.Value obj.index, \ident
-              LispyNode.Value obj.index, obj.name
-            ]
-          case obj.is-tmp
-            [
-              LispyNode.Value obj.index, \tmp
-              LispyNode.Value obj.index, obj.id
-              LispyNode.Value obj.index, obj.name
-            ]
-          case obj.is-internal
-            [
-              LispyNode.Value obj.index, \internal
-              LispyNode.Value obj.index, obj.name
-            ]
-          case obj.is-operator
-            [
-              LispyNode.Value obj.index, \operator
-              LispyNode.Value obj.index, obj.operator-type
-              LispyNode.Value obj.index, obj.name
-            ])
+        if obj.is-ident and obj.name.length > 1 and obj.name.char-code-at(0) == '$'.char-code-at(0)
+          LispyNode.Call obj.index, scope,
+            Ident obj.index, scope, \__wrap
+            Ident obj.index, scope, obj.name.substring 1
+        else
+          LispyNode.Call obj.index, scope,
+            Ident obj.index, scope, \__symbol
+            position or LispyNode.Value obj.index, void
+            ...(switch
+            case obj.is-ident
+              [
+                LispyNode.Value obj.index, \ident
+                LispyNode.Value obj.index, obj.name
+              ]
+            case obj.is-tmp
+              [
+                LispyNode.Value obj.index, \tmp
+                LispyNode.Value obj.index, obj.id
+                LispyNode.Value obj.index, obj.name
+              ]
+            case obj.is-internal
+              [
+                LispyNode.Value obj.index, \internal
+                LispyNode.Value obj.index, obj.name
+              ]
+            case obj.is-operator
+              [
+                LispyNode.Value obj.index, \operator
+                LispyNode.Value obj.index, obj.operator-type
+                LispyNode.Value obj.index, obj.name
+              ])
       case \call
         if obj.is-internal-call(\macro-const)
           LispyNode.Call obj.index, scope,
             Ident obj.index, scope, \__const
             obj.args[0]
+        else if obj.func instanceof Ident and obj.func.name == '$'
+          if obj.args.length != 1
+            throw Error "Can only use \$() in an AST if it has one argument."
+          let arg = obj.args[0]
+          if arg.is-internal-call(\spread)
+            throw Error "Cannot use ... in \$() in an AST."
+          LispyNode.Call obj.index, scope,
+            Ident obj.index, scope, \__wrap
+            arg
         else
           LispyNode.Call obj.index, scope,
             Ident obj.index, scope, \__call
@@ -764,14 +763,14 @@ class MacroContext
   @constify-object := constify-object
   
   def wrap(value)
-    if is-array! value
-      LispyNode.InternalCall(\block, @index, @scope(), ...value).reduce(@parser)
-    else if value instanceof LispyNode
-      value
-    else if not value?
+    if not value?
       LispyNode.Symbol.nothing @index
     else if typeof value in [\string, \boolean, \number]
       LispyNode.Value @index, value
+    else if value instanceof LispyNode
+      value
+    else if is-array! value
+      LispyNode.InternalCall(\block, @index, @scope(), ...value).reduce(@parser)
     else
       value//throw Error "Trying to wrap an unknown object: $(typeof! value)"
   
@@ -857,21 +856,29 @@ class MacroContext
     else
       node
   
-  def has-func(node)
-    if @_has-func?
-      @_has-func
-    else
-      let FOUND = {}
-      let walker(x)
-        if x instanceof LispyNode and x.is-internal-call(\function)
-          throw FOUND
-      try
-        walk @macro-expand-all(node), walker
-      catch e
-        if e != FOUND
-          throw e
-        return (@_has-func := true)
-      @_has-func := false
+  def has-func = do
+    let cache = Cache<LispyNode, Boolean>()
+    #(node)
+      if node instanceof LispyNode
+        cache-get-or-add! cache, node, do
+          if node.is-internal-call(\function)
+            true
+          else
+            let expanded-node = @macro-expand-1(node)
+            if expanded-node != node
+              @has-func expanded-node
+            else
+              let FOUND = {}
+              try
+                node.walk (#(subnode)
+                  if @has-func(subnode)
+                    throw FOUND
+                  subnode), this
+              catch e == FOUND
+                return true
+              false
+      else
+        false
   
   def is-statement(mutable node)
     node := @macro-expand-1 node // TODO: should this be macro-expand-all?
@@ -889,13 +896,10 @@ class MacroContext
       throw Error "$name is not a known type name"
     node.type(@parser).overlaps(type) // TODO: should this be macro-expand-all?
   
-  def mutate-last(mutable node, func as LispyNode -> LispyNode, include-noop)
-    if not is-object! node or node instanceof RegExp
-      return node
-    
-    if node not instanceof LispyNode
-      throw Error "Unexpected type to mutate-last through: $(typeof! node)"
-    
-    node.mutate-last @parser, func, this, include-noop
+  def mutate-last(mutable node, func as LispyNode -> LispyNode, include-noop as Boolean)
+    if node instanceof LispyNode
+      node.mutate-last @parser, func, this, include-noop
+    else
+      node
 
 module.exports := MacroContext

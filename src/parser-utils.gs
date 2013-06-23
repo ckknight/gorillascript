@@ -20,9 +20,10 @@ let node-to-type = do
     URIError: Type.error
   }
   #(node)
-    require! LispyNode: './parser-lispynodes'
-    if node not instanceof LispyNode
-      throw TypeError("Expected a LispyNode, got $(typeof! node)")
+    if DEBUG
+      require! LispyNode: './parser-lispynodes'
+      if node not instanceof LispyNode
+        throw TypeError("Expected a LispyNode, got $(typeof! node)")
     switch
     case node.is-value
       switch node.value
@@ -54,7 +55,7 @@ let node-to-type = do
       let data = {}
       for i in 0 til node.args.length by 2
         let key = node.args[i]
-        if key instanceof LispyNode and key.is-const()
+        if key.is-const()
           data[key.const-value()] := node-to-type(node.args[i + 1])
       Type.make-object data
     default
@@ -90,7 +91,7 @@ let map-async(array, func, context, callback)
 
 let add-param-to-scope(scope, param, force-mutable)!
   require! LispyNode: './parser-lispynodes'
-  if param not instanceof LispyNode
+  if DEBUG and param not instanceof LispyNode
     throw Error "Unknown param type: $(typeof! param)"
   if param.is-internal-call()
     if param.func.is-param
@@ -98,9 +99,9 @@ let add-param-to-scope(scope, param, force-mutable)!
       let is-spread = param.args[2].const-value()
       let is-mutable = force-mutable or param.args[3].const-value()
       let as-type = param.args[4].convert-nothing(void)
-      if ident instanceofsome [LispyNode.Symbol.ident, LispyNode.Symbol.tmp]
+      if ident.is-symbol and ident.is-ident-or-tmp
         scope.add ident, is-mutable, if as-type then node-to-type(as-type) else if is-spread then Type.array else Type.any
-      else if ident instanceof LispyNode and ident.is-internal-call(\access)
+      else if ident.is-internal-call(\access)
         let [, child] = ident.args
         if not child.is-const-type(\string)
           throw Error "Expected constant access: $(typeof! child)"

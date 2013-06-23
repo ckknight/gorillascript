@@ -2906,7 +2906,7 @@ redefine TypeReference = separated-list(
   Pipe) |> mutate #(mutable types, parser, index)
     let result = []
     for type, i in types
-      if type instanceof LispyNode and type.is-internal-call(\type-union)
+      if type.is-internal-call(\type-union)
         result.push ...type.args
       else
         result.push type
@@ -2958,7 +2958,7 @@ let mutate-function(node as LispyNode, parser, index)
 let validate-spread-parameters(params, parser)
   let mutable spread-count = 0
   for param in params
-    if param instanceof LispyNode and param.is-internal-call(\param) and param.args[2].const-value()
+    if param.is-internal-call(\param) and param.args[2].const-value()
       spread-count += 1
       if spread-count > 1
         throw ParserError "Cannot have more than one spread parameter", parser, param.index
@@ -3018,9 +3018,9 @@ let ParamSingularObjectKey = sequential(
   [\this, IdentifierParameter]
   NotColon) |> mutate #(param, parser, index)
   let ident = param.args[0]
-  let key = if ident instanceof LSymbol.ident
+  let key = if ident.is-symbol and ident.is-ident
     LValue index, ident.name
-  else if ident instanceof LispyNode and ident.is-internal-call(\access)
+  else if ident.is-internal-call(\access)
     ident.args[1]
   else
     throw Error "Unknown object key type: $(typeof! ident)"
@@ -3090,12 +3090,12 @@ let ParameterSequence = sequential(
   EmptyLines
   CloseParenthesis) |> mutate do
   let check-param(param as LispyNode, parser, names as [])!
-    if param instanceof LispyNode and param.is-internal-call()
+    if param.is-internal-call()
       if param.func.is-param
         let ident = param.args[0]
-        let name = if ident instanceof LSymbol.ident
+        let name = if ident.is-symbol and ident.is-ident
           ident.name
-        else if ident instanceof LispyNode and ident.is-internal-call(\access)
+        else if ident.is-internal-call(\access)
           let child = ident.args[1]
           if not child.is-const-type(\string)
             throw Error "Expected constant access"
@@ -3303,17 +3303,17 @@ define IdentifierOrAccess(parser, index)
   let result = _IdentifierOrAccess(parser, index)
   if result
     let {value} = result
-    if value instanceof LSymbol.ident or (value instanceof LispyNode and value.is-internal-call(\access))
+    if (value.is-symbol and value.is-ident) or value.is-internal-call(\access)
       result
 
 let SingularObjectKey = one-of(
   sequential(
     [\this, IdentifierOrAccess]
     NotColon) |> mutate #(ident, parser, index)
-    let key = if ident instanceof LispyNode and ident.is-internal-call(\access)
-      ident.args[1]
-    else if ident instanceof LSymbol.ident
+    let key = if ident.is-symbol and ident.is-ident
       LValue index, ident.name
+    else if ident.is-internal-call(\access)
+      ident.args[1]
     else
       throw ParserError "Unknown ident type: $(typeof! ident)", parser, index
     { key, value: ident }
@@ -3912,7 +3912,7 @@ let convert-invocation-or-access = do
       else
         let tmp-ids = []
         let mutable set-head = head
-        if head instanceof LispyNode and head.is-internal-call(\access) and not link.is-context-call and not link.is-new
+        if head.is-internal-call(\access) and not link.is-context-call and not link.is-new
           let [mutable parent, mutable child] = head.args
           let mutable set-parent = parent
           let mutable set-child = child
@@ -4456,9 +4456,9 @@ let MacroOptions = maybe (sequential(
 
 let add-macro-syntax-parameters-to-scope(params, scope)!
   for param in params
-    if param instanceof LispyNode and param.is-internal-call(\syntax-param)
+    if param.is-internal-call(\syntax-param)
       let ident = param.args[0]
-      if ident instanceof LSymbol.ident
+      if ident.is-symbol and ident.is-ident
         scope.add ident, true, Type.any
 
 let MacroSyntax = sequential(
@@ -4806,11 +4806,11 @@ let _Block-mutator(lines, parser, index)
   let nodes = []
   for item, i in lines
     for part, j in item
-      if part instanceof LValue
-        nodes.push part
-      else if part not instanceof LispyNode
+      if DEBUG and part not instanceof LispyNode
         throw TypeError "Expected lines[$i][$j] to be a LispyNode, got $(typeof! part)"
-      else if part instanceof LispyNode and part.is-internal-call(\block)
+      else if part.is-value
+        nodes.push part
+      else if part.is-internal-call(\block)
         nodes.push ...part.args
       else if not is-nothing(part)
         nodes.push part
@@ -5308,26 +5308,28 @@ class Parser
       LValue index, false
       LValue index, false
   
-  let serialize-param-type(as-type)
-    if as-type instanceof LSymbol.ident
+  let serialize-param-type(as-type as LispyNode)
+    switch
+    case as-type.is-symbol and as-type.is-ident
       [\ident, as-type.name]
-    else if as-type instanceof LispyNode and as-type.is-internal-call(\syntax-sequence)
-      [\sequence, ...fix-array serialize-params(as-type.args)]
-    else if as-type instanceof LispyNode and as-type.is-internal-call(\syntax-choice)
-      [\choice, ...for choice in as-type.args; serialize-param-type(choice)]
-    else if as-type.is-const()
+    case as-type.is-const()
       [\const, as-type.const-value()]
-    else if as-type instanceof LispyNode and as-type.is-internal-call(\syntax-many)
-      [\many, as-type.args[1].const-value(), ...serialize-param-type(as-type.args[0])]
-    else
-      throw Error("Unknown param type: $(typeof! as-type)")
-  let serialize-params(params)
+    case as-type.is-internal-call()
+      switch as-type.func.name
+      case \syntax-sequence
+        [\sequence, ...fix-array serialize-params(as-type.args)]
+      case \syntax-choice
+        [\choice, ...for choice in as-type.args; serialize-param-type(choice)]
+      case \syntax-many
+        [\many, as-type.args[1].const-value(), ...serialize-param-type(as-type.args[0])]
+  let serialize-params(params as [LispyNode])
     simplify-array for param in params
-      if param.is-const()
+      switch
+      case param.is-const()
         [\const, param.const-value()]
-      else if param instanceof LispyNode and param.is-internal-call(\syntax-param)
+      case param.is-internal-call(\syntax-param)
         let [ident, as-type] = param.args
-        if ident not instanceof LSymbol.ident
+        if DEBUG and not (ident.is-symbol and ident.is-ident)
           throw Error("Unknown param type: $(typeof! ident)")
         let value = if ident.name == \this
           [\this]
@@ -5336,8 +5338,6 @@ class Parser
         if not is-nothing(as-type)
           value.push ...serialize-param-type(as-type)
         value
-      else
-        throw Error()
   let deserialize-param-type = do
     let deserialize-param-type-by-type =
       ident: #(scope, name)
@@ -5383,55 +5383,46 @@ class Parser
         else
           throw Error "Unknown param type: $(String type)"
   
-  let calc-param(param)
-    if param instanceof LSymbol.ident
+  let calc-param(param as LispyNode)
+    switch
+    case param.is-symbol and param.is-ident
       let name = param.name
       let macros = @macros
       if macros.has-syntax(name)
         macros.get-syntax(name)
       else
         #(parser, index) -> parser.macros.get-syntax(name)@(this, parser, index)
-    else if param instanceof LispyNode and param.is-internal-call(\syntax-sequence)
-      handle-params@ this, param.args
-    else if param instanceof LispyNode and param.is-internal-call(\syntax-choice)
-      one-of ...for choice in param.args
-        calc-param@ this, choice
-    else if param.is-const()
+    case param.is-const-type(\string)
       let string = param.const-value()
-      if not is-string! string
-        throw Error "Expected a constant string parameter, got $(typeof! string)"
       macro-syntax-const-literals![string] or word-or-symbol string
-    else if param instanceof LispyNode and param.is-internal-call(\syntax-many)
-      let [inner, multiplier] = param.args
-      let calced = calc-param@ this, inner
-      switch multiplier.const-value()
-      case "*"; zero-or-more calced
-      case "+"; one-or-more calced
-      case "?"; one-of(calced, Nothing)
-      default
-        throw Error("Unknown syntax multiplier: $multiplier")
-    else
-      throw Error "Unexpected type: $(typeof! param)"
+    case param.is-internal-call()
+      switch param.func.name
+      case \syntax-sequence
+        handle-params@ this, param.args
+      case \syntax-choice
+        one-of ...for choice in param.args
+          calc-param@ this, choice
+      case \syntax-many
+        let [inner, multiplier] = param.args
+        let calced = calc-param@ this, inner
+        switch multiplier.const-value()
+        case "*"; zero-or-more calced
+        case "+"; one-or-more calced
+        case "?"; one-of calced, Nothing
   
-  let handle-params(params)
-    let sequence = []
-    for param in params
-      if param.is-const()
+  let handle-params(params as [LispyNode])
+    sequential ...for param in params
+      switch
+      case param.is-const-type(\string)
         let string = param.const-value()
-        if not is-string! string
-          @error "Expected a constant string parameter, got $(typeof! string)"
-
-        sequence.push macro-syntax-const-literals![string] or word-or-symbol string
-      else if param.is-internal-call(\syntax-param)
+        macro-syntax-const-literals![string] or word-or-symbol string
+      case param.is-internal-call(\syntax-param)
         let [ident, as-type] = param.args
-        if ident not instanceof LSymbol.ident
-          throw Error "Don't know how to handle ident type: $(typeof! ident)"
+        if DEBUG and not (ident.is-symbol and ident.is-ident)
+          throw Error("Unknown param type: $(typeof! ident)")
 
-        let type = if not is-nothing(as-type) then as-type else LSymbol.ident 0, param.scope, \Expression
-        sequence.push [ident.name, calc-param@ this, type]
-      else
-        @error "Unexpected parameter type: $(typeof! param)"
-    sequential ...sequence
+        [ident.name, calc-param@ this, (if not is-nothing(as-type) then as-type else LSymbol.ident 0, param.scope, \Expression)]
+
   let simplify-array(operators as [])
     if operators.length == 0
       void
@@ -5442,7 +5433,7 @@ class Parser
   let simplify-object(options as {})
     for k, v of options
       return options
-    return void  
+    return void
   let get-compilation-options(state-options as {})
     {
       +bare
@@ -5477,7 +5468,7 @@ class Parser
             macro-full-data-ident
             LValue index, \macro-data
         ...for param in params
-          if param instanceof LispyNode and param.is-internal-call(\syntax-param)
+          if param.is-internal-call(\syntax-param)
             scope.add param.args[0], true, Type.any
             LInternalCall \block, index, scope,
               LInternalCall \var, index, scope,
@@ -5522,7 +5513,7 @@ class Parser
             LSymbol.nothing index // as-type
           body := LInternalCall \block, index, scope,
             ...for param in params
-              if param instanceof LispyNode and param.is-internal-call(\syntax-param)
+              if param.is-internal-call(\syntax-param)
                 scope.add param.args[0], true, Type.any
                 LInternalCall \block, index, scope,
                   LInternalCall \var, index, scope,
@@ -5585,7 +5576,7 @@ class Parser
             macro-full-data-ident
             LValue index, \macro-data
         ...for param, i in params
-          if param instanceof LispyNode and param.is-internal-call(\param)
+          if param.is-internal-call(\param)
             let ident = param.args[0]
             scope.add ident, true, Type.any
             LInternalCall \block, index, scope,

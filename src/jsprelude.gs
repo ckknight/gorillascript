@@ -2480,7 +2480,7 @@ macro once!(func, silent-fail)
         $body
       @func-is-bound func
       @func-as-type func
-      @func-is-generator func))
+      @func-is-generator func), func)
     AST
       let mutable $ran = false
       $func

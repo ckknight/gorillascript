@@ -156,11 +156,16 @@ class Scope
 let make-has-generator-node = #
   let in-loop-cache = Cache<LispyNode, Boolean>()
   let has-in-loop(node)
-    async node <- in-loop-cache.get-or-add node
-    let mutable result = false
-    if node instanceof LispyNode and node.is-internal-call(\yield, \return)
-      return true
-    unless node instanceof LispyNode and node.is-internal-call(\function)
+    cache-get-or-add! in-loop-cache, node, do
+      if node.is-internal-call()
+        switch node.func.name
+        case \yield, \return
+          return true
+        case \function
+          return false
+        default
+          void
+
       let FOUND = {}
       try
         node.walk #(n)
@@ -169,61 +174,75 @@ let make-has-generator-node = #
           n
       catch e == FOUND
         return true
-    false
+      false
 
   let in-switch-cache = Cache<LispyNode, Boolean>()
   let has-in-switch(node)
-    async node <- in-switch-cache.get-or-add node
-    returnif in-loop-cache.get node
-    if node instanceof LispyNode and node.is-internal-call(\continue, \yield, \return)
-      return true
-    unless node instanceof LispyNode and node.is-internal-call(\function)
+    cache-get-or-add! in-switch-cache, node, do
+      returnif in-loop-cache.get node
+
+      if node.is-internal-call()
+        switch node.func.name
+        case \continue, \yield, \return
+          return true
+        case \function
+          return false
+        default
+          void
+
       let FOUND = {}
       try
         node.walk #(n)
-          if n instanceof LispyNode and n.is-internal-call(\for, \for-in)
-            if has-in-loop n
-              throw FOUND
+          let check = if n.is-internal-call(\for, \for-in)
+            has-in-loop
           else
-            if has-in-switch n
-              throw FOUND
-          n
-      catch e == FOUND
-        return true
-    false
-  
-  let return-free-cache = Cache<LispyNode, Boolean>()
-  let normal-cache = Cache<LispyNode, Boolean>()
-  let has-generator-node(node as LispyNode, allow-return as Boolean)
-    async node <- (if allow-return then return-free-cache else normal-cache).get-or-add node
-    if not allow-return
-      returnif return-free-cache.get node
-    returnif in-loop-cache.get node
-    returnif in-switch-cache.get node
-    if node instanceof LispyNode and (node.is-internal-call(\break, \continue, \yield) or (not allow-return and node.is-internal-call(\return)))
-      return true
-    unless node instanceof LispyNode and node.is-internal-call(\function)
-      let FOUND = {}
-      try
-        node.walk #(n)
-          if n instanceof LispyNode and n.is-internal-call()
-            switch n.func.name
-            case \for-in, \for
-              if has-in-loop n
-                throw FOUND
-              return n
-            case \switch
-              if has-in-switch n
-                throw FOUND
-              return n
-            default
-              void
-          if has-generator-node n, allow-return
+            has-in-switch
+          if check n
             throw FOUND
           n
       catch e == FOUND
         return true
-    false
+      false
+  
+  let return-free-cache = Cache<LispyNode, Boolean>()
+  let normal-cache = Cache<LispyNode, Boolean>()
+  let has-generator-node(node as LispyNode, allow-return as Boolean)
+    cache-get-or-add! (if allow-return then return-free-cache else normal-cache), node, do
+      if not allow-return
+        returnif return-free-cache.get node
+      returnif in-loop-cache.get node
+      returnif in-switch-cache.get node
+
+      if node.is-internal-call()
+        switch node.func.name
+        case \break, \continue, \yield
+          return true
+        case \return
+          if not allow-return
+            return true
+        case \function
+          return false
+        default
+          void
+
+      let FOUND = {}
+      try
+        node.walk #(n)
+          let mutable check = has-generator-node
+          if n.is-internal-call()
+            switch n.func.name
+            case \for-in, \for
+              check := has-in-loop
+            case \switch
+              check := has-in-switch
+            default
+              void
+          if check n, allow-return
+            throw FOUND
+          n
+      catch e == FOUND
+        return true
+      false
   has-generator-node
 
 let uid()
@@ -571,9 +590,9 @@ let flatten-spread-array(elements)
   let result = []
   let mutable changed = false
   for element in elements
-    if element instanceof LispyNode and element.is-internal-call(\spread)
+    if element.is-internal-call(\spread)
       let node = element.args[0]
-      if node instanceof LispyNode and node.is-internal-call(\array)
+      if node.is-internal-call(\array)
         result.push ...node.args
         changed := true
       else
@@ -688,7 +707,7 @@ let generator-translate = do
   let has-single-node-with-noops-no-spread(nodes as [LispyNode], state as GeneratorState)
     let mutable count = 0
     for node in nodes
-      if node instanceof LispyNode and node.is-internal-call(\spread)
+      if node.is-internal-call(\spread)
         return false
       else if state.has-generator-node node
         count += 1
@@ -725,7 +744,7 @@ let generator-translate = do
         if not t-array-start?
           t-array-start := array-translate pos, elements[0 til i], scope, true, false
           state := state.add #-> ast.Assign pos, t-tmp(), t-array-start()
-        if element instanceof LispyNode and element.is-internal-call(\spread)
+        if element.is-internal-call(\spread)
           let expr = generator-translate-expression element.args[0], scope, state, false
           state := expr.state.add #
             let tmp = t-tmp()
@@ -776,7 +795,7 @@ let generator-translate = do
 
       let g-func = generator-translate-expression func, scope, state, true, unassigned
 
-      if context not instanceof LispyNode or not context.is-internal-call(\spread)
+      if not context.is-internal-call(\spread)
         let g-context = generator-translate-expression context, scope, g-func.state, true, unassigned
         let g-args = generator-array-translate get-pos(node), real-args, scope, g-context.state, unassigned
         handle-assign assign-to, scope, g-args.state, #
@@ -893,7 +912,7 @@ let generator-translate = do
   let generator-translate-expression-lispy-operators =
     assign: #(node, args, scope, state, assign-to, unassigned)
       let [left, right] = args
-      let g-left = if left instanceof LispyNode and left.is-internal-call(\access)
+      let g-left = if left.is-internal-call(\access)
         let g-parent = generator-translate-expression left.args[0], scope, state, true, unassigned
         let g-child = generator-translate-expression left.args[1], scope, g-parent.state, true, unassigned
         {
@@ -904,7 +923,7 @@ let generator-translate = do
             g-child.cleanup()
         }
       else
-        if unassigned and left instanceof LispyNode.Symbol.ident
+        if unassigned and left.is-symbol and left.is-ident
           unassigned[left.name] := false
         {
           state
@@ -973,11 +992,11 @@ let generator-translate = do
           first!(g-node.t-node(), g-node.cleanup()))
   
   let generator-translate-expression-lispy-call(node, func, args, scope, state, assign-to, unassigned)
-    if func instanceof LispyNode.Symbol.ident and func.name == \eval
+    if func.is-symbol and func.is-ident and func.name == \eval
       let g-code = generator-translate-expression node.args[0], scope, state, false, unassigned
       return handle-assign assign-to, scope, g-code.state, (#-> ast.Eval get-pos(node), g-code.t-node()), g-code.cleanup
     
-    let g-func = if func instanceof LispyNode and func.is-internal-call(\access)
+    let g-func = if func.is-internal-call(\access)
       let g-parent = generator-translate-expression func.args[0], scope, state, true, unassigned
       let g-child = generator-translate-expression func.args[1], scope, g-parent.state, true, unassigned
       {
@@ -1031,20 +1050,15 @@ let generator-translate = do
   
   let generator-translate-expression(node as LispyNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
     if state.has-generator-node node
-      if node instanceof LispyNode
-        return generator-translate-expression-lispy(node, scope, state, assign-to, unassigned)
-      throw Error "Unable to translate non-LispyNode: $(typeof! node)"
+      generator-translate-expression-lispy(node, scope, state, assign-to, unassigned)
     else
       handle-assign assign-to, scope, state, translate node, scope, \expression, unassigned
   
   let is-expression(node)
-    if node instanceof LispyNode
-      if node.is-internal-call()
-        generator-translate-expression-lispy-internals ownskey node.func.name
-      else
-        true
+    if node.is-internal-call()
+      generator-translate-expression-lispy-internals ownskey node.func.name
     else
-      expressions ownskey node.type-id
+      true
   
   let generator-translate-lispy-internals =
     block: #(node, args, scope, state, break-state, continue-state, unassigned, is-top)
@@ -1102,11 +1116,11 @@ let generator-translate = do
     
     return: #(node, args, scope, mutable state, break-state, continue-state, unassigned, is-top)
       let mutated-node = args[0].mutate-last null, (#(n)
-        if n instanceof LispyNode and n.is-internal-call(\return)
+        if n.is-internal-call(\return)
           n
         else
           LispyNode.InternalCall \return, n.index, n.scope, n), null, true
-      if mutated-node instanceof LispyNode and mutated-node.is-internal-call(\return) and mutated-node.args[0] == args[0]
+      if mutated-node.is-internal-call(\return) and mutated-node.args[0] == args[0]
         if args[0].is-const() and args[0].is-const-value(void)
           state.return get-pos(node)
           state
@@ -1167,7 +1181,7 @@ let generator-translate = do
     
     for-in: #(node, args, scope, mutable state, , , unassigned)
       let t-key = translate args[0], scope, \left-expression
-      if unassigned and args[0] instanceof LispyNode.Symbol.ident
+      if unassigned and args[0].is-symbol and args[0].is-ident
         unassigned[args[0].name] := false
       let g-object = generator-translate-expression args[1], scope, state, false // TODO: check whether or not this should be cached
       state := g-object.state
@@ -1302,12 +1316,7 @@ let generator-translate = do
   
   #(node as LispyNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     if state.has-generator-node node
-      if node instanceof LispyNode
-        return generator-translate-lispy(node, scope, state, break-state, continue-state, unassigned, is-top)
-      let ret = generator-translate-expression node, scope, state
-      ret.state.add #-> first!(
-        ret.t-node()
-        ret.cleanup())
+      generator-translate-lispy(node, scope, state, break-state, continue-state, unassigned, is-top)
     else
       state.add translate node, scope, if is-top then \top-statement else \statement, unassigned
 
@@ -1316,7 +1325,7 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
   let mutable current = []
   translated-items.push(current)
   for element in flatten-spread-array elements
-    if element instanceof LispyNode and element.is-internal-call(\spread)
+    if element.is-internal-call(\spread)
       translated-items.push
         t-node: translate element.args[0], scope, \expression, unassigned
         type: element.args[0].type()
@@ -1380,7 +1389,7 @@ let translate-lispy-internal =
     let [func, context] = args
     let real-args = args.slice(2)
     let t-func = translate func, scope, \expression, unassigned
-    if context not instanceof LispyNode or not context.is-internal-call(\spread)
+    if not context.is-internal-call(\spread)
       let t-context = translate(context, scope, \expression, unassigned)
       let t-args = array-translate(get-pos(node), real-args, scope, false, true, unassigned)
       #
@@ -1486,19 +1495,25 @@ let translate-lispy-internal =
       Number: \number
       Function: \function
     }
-    let translate-type-check(node)
-      if node instanceof LispyNode
-        if node.is-internal-call(\access)
-          // FIXME
-          Type.any
-        else if node.is-symbol and node.is-ident
+    let translate-type-check(node as LispyNode)
+      switch node.node-type
+      case \symbol
+        switch
+        case node.is-ident
           if primitive-types ownskey node.name
             Type[primitive-types[node.name]]
           else
             Type.any // FIXME
-        else if node.is-symbol and node.is-internal and node.is-nothing
+        case node.is-internal and node.is-nothing
           Type.any
-        else if node.is-internal-call(\type-union)
+      case \call
+        unless node.is-internal-call()
+          throw Error "Unknown type: $(String typeof! node)"
+        switch node.func.name
+        case \access
+          // FIXME
+          Type.any
+        case \type-union
           let mutable result = Type.none
           for type in node.types
             result := result.union if type.is-const()
@@ -1515,14 +1530,14 @@ let translate-lispy-internal =
             else
               throw Error "Not implemented: typechecking for non-idents/consts within a type-union"
           result
-        else if node.is-internal-call(\type-generic)
+        case \type-generic
           if node.args[0].is-ident and node.args[0].name == \Array
             translate-type-check(node.args[1]).array()
           else if node.args[0].is-ident and node.args[0].name == \Function
             translate-type-check(node.args[1]).function()
           else
             Type.any // FIXME
-        else if node.is-internal-call(\type-object)
+        case \type-object
           let type-data = {}
           
           for i in 0 til node.args.length by 2
@@ -1530,13 +1545,9 @@ let translate-lispy-internal =
               type-data[node.args[i].const-value()] := translate-type-check(node.args[i + 1])
           
           Type.make-object type-data
-        else
-          throw Error "Unknown type: $(String typeof! node)"
-      else
-        throw Error "Unknown type: $(String typeof! node)"
 
-    let translate-param(param, scope, inner)
-      if param not instanceof LispyNode or not param.is-internal-call(\param)
+    let translate-param(param as LispyNode, scope, inner)
+      if not param.is-internal-call(\param)
         throw Error "Unknown parameter type: $(typeof! param)"
       let mutable ident = translate(param.args[0], scope, \param)()
 
@@ -1567,28 +1578,32 @@ let translate-lispy-internal =
         Boolean: Type.boolean
         Function: Type.function
         Array: Type.array
-      #(node, scope)
-        if node instanceof LispyNode
-          switch
-          case node.is-value
-            switch node.value
-            case null; Type.null
-            case void; Type.undefined
-            default
-              throw Error "Unexpected Value type: $(String node.value)"
-          case node.is-symbol and node.is-ident
+      #(node as LispyNode, scope)
+        switch node.node-type
+        case \value
+          switch node.value
+          case null; Type.null
+          case void; Type.undefined
+          default
+            throw Error "Unexpected Value type: $(String node.value)"
+        case \symbol
+          if node.is-ident
             unless primordial-types ownskey node.name
               throw Error "Not implemented: custom type: $(node.name)"
             primordial-types[node.name]
-          case node.is-internal-call(\type-union)
+          else
+            throw Error "Unexpected type: $(typeof! node)"
+        case \call
+          unless node.is-internal-call()
+            throw Error "Unexpected type: $(typeof! node)"
+          switch node.func.name
+          case \type-union
             for reduce type in node.args, current = Type.none
               current.union translate-type(type)
-          case node.is-internal-call(\type-generic)
+          case \type-generic
             let base = translate-type(node.args[0], scope)
             let args = for arg in node.args[1 to -1]; translate-type(arg, scope)
             Type.generic(base, ...args)
-        else
-          throw Error "Unknown type to translate: $(typeof! node)"
     
     #(node, args, scope, location, unassigned) -> #
       let mutable inner-scope = scope.clone(not node.args[2].is-const() or not not node.args[2].const-value())
@@ -1613,10 +1628,10 @@ let translate-lispy-internal =
           LispyNode.Call subnode.index, subnode.scope,
             LispyNode.Symbol.return subnode.index
             subnode.args[0]
-      let translate-auto-return(mutable subnode)
-        if subnode instanceof LispyNode and subnode.is-internal-call \function
+      let translate-auto-return(mutable subnode as LispyNode)
+        if subnode.is-internal-call \function
           return subnode
-        if subnode instanceof LispyNode and subnode.is-internal-call \auto-return
+        if subnode.is-internal-call \auto-return
           subnode := convert-auto-return(subnode)
 
         subnode.walk translate-auto-return
@@ -1653,11 +1668,11 @@ let translate-lispy-internal =
       throw Error "Expected Return in statement position"
     
     let mutated-node = args[0].mutate-last null, (#(n)
-      if n instanceof LispyNode and n.is-internal-call(\return)
+      if n.is-internal-call(\return)
         n
       else
         LispyNode.InternalCall \return, n.index, n.scope, n), null, true
-    if mutated-node instanceof LispyNode and mutated-node.is-internal-call(\return) and mutated-node.args[0] == args[0]
+    if mutated-node.is-internal-call(\return) and mutated-node.args[0] == args[0]
       let t-value = translate args[0], scope, \expression, unassigned
       if args[0].is-statement()
         t-value
@@ -1706,7 +1721,7 @@ let translate-lispy-internal =
   
   for-in: #(node, args, scope, location, unassigned)
     let t-key = translate args[0], scope, \left-expression
-    if unassigned and args[0] instanceof LispyNode.Symbol.ident
+    if unassigned and args[0].is-symbol and args[0].is-ident
       unassigned[args[0].name] := false
     let t-object = translate args[1], scope, \expression, unassigned
     let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true}
@@ -1880,7 +1895,7 @@ let translate-lispy-internal =
 
   var: #(node, args, scope, location, unassigned)
     let ident = args[0]
-    if unassigned and not unassigned[UNASSIGNED_TAINT_KEY] and ident instanceof LispyNode.Symbol.ident and unassigned not ownskey ident.name
+    if unassigned and not unassigned[UNASSIGNED_TAINT_KEY] and ident.is-symbol and ident.is-ident and unassigned not ownskey ident.name
       unassigned[ident.name] := true
     let t-ident = translate ident, scope, \left-expression
     #
@@ -1898,7 +1913,7 @@ let translate-lispy-operator =
     let op-name = node.func.name
     let t-left = translate args[0], scope, \left-expression
     let t-right = translate args[1], scope, \expression, unassigned
-    if unassigned and args[0] instanceof LispyNode.Symbol.ident
+    if unassigned and args[0].is-symbol and args[0].is-ident
       if op-name == "=" and unassigned[args[0].name] and not unassigned[UNASSIGNED_TAINT_KEY] and args[1].is-const-value(void)
         return #-> ast.Noop(get-pos(node))
       unassigned[args[0].name] := false
@@ -1919,13 +1934,13 @@ let translate-lispy-operator =
   
   unary: #(node, args, scope, location, unassigned)
     let op-name = node.func.name
-    if unassigned and op-name in ["++", "--", "++post", "--post"] and args[0] instanceof LispyNode.Symbol.ident
+    if unassigned and op-name in ["++", "--", "++post", "--post"] and args[0].is-symbol and args[0].is-ident
       unassigned[args[0].name] := false
     let t-subnode = translate args[0], scope, \expression, unassigned
     # ast.Unary get-pos(node), op-name, t-subnode()
 
 let translate-lispy-call(node, func, args, scope, location, unassigned)
-  if func instanceof LispyNode.Symbol.ident
+  if func.is-symbol and func.is-ident
     if func.name == \RegExp and args[0].is-const() and (not args[1] or args[1].is-const())
       return if args[1] and args[1].const-value()
         # ast.Regex get-pos(node), String(args[0].const-value()), String(args[1].const-value())
@@ -2001,9 +2016,7 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
         return translate-lispy-operator[name] node, args, scope, location, unassigned
     translate-lispy-call node, func, args, scope, location, unassigned
 
-let translate(node as Object, scope as Scope, location as String, unassigned)
-  unless node instanceof LispyNode
-    throw Error "Unable to translate unknown node type: $(typeof! node)"
+let translate(node as LispyNode, scope as Scope, location as String, unassigned)
   return translate-lispy(node, scope, location, unassigned)
 
 let translate-function-body(pos, is-generator, scope, body, unassigned = {})
