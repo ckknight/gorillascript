@@ -5,7 +5,6 @@ const DISABLE_GENERICS = not DEBUG
 const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 
 const ParserNodeType = {
-  Function:       20
   MacroAccess:    23
 }
 

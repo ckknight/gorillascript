@@ -3,6 +3,7 @@ let {to-JS-source} = require './jsutils'
 require! Type: './types'
 require! OldNode: './parser-nodes'
 let {Cache, is-primordial} = require './utils'
+let {node-to-type} = require './parser-utils'
 
 let capitalize(value as String)
   value.char-at(0).to-upper-case() & value.substring(1)
@@ -683,7 +684,23 @@ class Symbol extends Node
           let type = if is-last then Type.undefined else Type.none
           type.union call.args[2].return-type(parser, false)
       }
-      function: {}
+      function: {
+        -do-wrap-args
+        validate-args(params as Node, body as OldNode, bound as OldNode, as-type as OldNode, is-generator as Value)
+          if not params.is-internal-call(\array)
+            throw Error "Expected params to be an internal Array call, got $(typeof! params)"
+        _type: do
+          let cache = Cache<Call, Type>()
+          #(call, parser)
+            cache-get-or-add! cache, call,
+              if call.args[3] and call.args[3] not instanceof Symbol.nothing
+                node-to-type(call.args[3]).function()
+              else if call.args[4].const-value()
+                Type.generator
+              else
+                call.args[1].return-type(parser, true).function()
+        _is-noop() true
+      }
       if: {
         -do-wrap-args
         validate-args(test as OldNode, when-true as OldNode, when-false as OldNode, ...rest)
@@ -2346,11 +2363,13 @@ class Call extends Node
     else if @is-statement()
       let inner-scope = parser.push-scope(true, @scope)
       let result = Call @index, @scope,
-        OldNode.Function @index, @scope, [],
-          Call @index, inner-scope,
-            Symbol.auto-return @index
+        InternalCall \function, @index, @scope,
+          InternalCall \array, @index, @scope
+          InternalCall \auto-return, @index, inner-scope,
             @rescope(inner-scope)
-          true
+          Value @index, true
+          Symbol.nothing @index
+          Value @index, false
       parser.pop-scope()
       result
     else
@@ -2399,14 +2418,16 @@ class Call extends Node
     else
       false
 
+let InternalCall(internal-name, index, scope, ...args)
+  Call index, scope,
+    Symbol[internal-name] index
+    ...args
+
 module.exports := Node <<< {
   Value
   Symbol
   Call
-  InternalCall: #(internal-name, index, scope, ...args)
-    Call index, scope,
-      Symbol[internal-name] index
-      ...args
+  InternalCall
   Access: #(index, scope, parent, ...children)
     for reduce child in children, current = parent
       Call index, scope,

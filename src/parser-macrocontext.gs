@@ -6,7 +6,6 @@ require! Type: './types'
 require! Scope: './parser-scope'
 let {node-to-type, add-param-to-scope} = require './parser-utils'
 
-let FunctionNode = Node.Function
 let MacroAccessNode = Node.MacroAccess
 
 let Tmp = LispyNode.Symbol.tmp
@@ -339,32 +338,59 @@ class MacroContext
       func
       ...(for arg in args; @do-wrap(arg))).reduce(@parser)
   
-  def func(mutable params, body as Node, bound as (Node|Boolean) = false, as-type as Node|void, generator as Boolean)
+  def func(mutable params as [Node], body as Node, bound as (Node|Boolean) = false, as-type as Node|void, is-generator as Boolean)
     let scope = @parser.push-scope(true)
     params := for param in params
       let p = param.rescope scope
       add-param-to-scope scope, p
       p
-    let func = FunctionNode(body.index, scope.parent, params, body.rescope(scope), bound, as-type, generator).reduce(@parser)
+    let func = (LispyNode.InternalCall \function, body.index, scope.parent,
+      LispyNode.InternalCall \array, body.index, scope.parent, ...params
+      body.rescope(scope)
+      if is-boolean! bound
+        LispyNode.Value body.index, bound
+      else
+        bound
+      as-type or LispyNode.Symbol.nothing body.index
+      LispyNode.Value body.index, is-generator).reduce(@parser)
     @parser.pop-scope()
     func
   
-  def is-func(node) -> @real(node) instanceof FunctionNode
+  def is-func(mutable node)
+    node := @real(node)
+    node instanceof LispyNode and node.is-internal-call(\function)
   def func-body(mutable node)
     node := @real node
-    if @is-func node then node.body
+    if node instanceof LispyNode and node.is-internal-call(\function)
+      node.args[1]
   def func-params(mutable node)
     node := @real node
-    if @is-func node then node.params
+    if node instanceof LispyNode and node.is-internal-call(\function)
+      let params = node.args[0]
+      if params.is-internal-call(\array)
+        params.args
+      else
+        throw Error "For some reason, func params is not an array"
   def func-is-bound(mutable node)
     node := @real node
-    if @is-func node then not not node.bound and node.bound not instanceof Node
+    if node instanceof LispyNode and node.is-internal-call(\function)
+      let bound = node.args[2]
+      if bound.is-const()
+        bound.const-value()
+      else
+        false
   def func-as-type(mutable node)
     node := @real node
-    if @is-func node then node.as-type
+    if node instanceof LispyNode and node.is-internal-call(\function)
+      let as-type = node.args[3]
+      if as-type.is-symbol and as-type.is-internal and as-type.is-nothing
+        void
+      else
+        as-type
   def func-is-generator(mutable node)
     node := @real node
-    if @is-func node then not not node.generator
+    if node instanceof LispyNode and node.is-internal-call(\function)
+      node.args[4].const-value()
   
   def param(ident as Node, default-value as Node|null, spread as Boolean, is-mutable as Boolean, as-type as Node|null)
     LispyNode.InternalCall(\param, ident.index, ident.scope,
@@ -850,7 +876,7 @@ class MacroContext
     else
       let FOUND = {}
       let walker(x)
-        if x instanceof FunctionNode
+        if x instanceof LispyNode and x.is-internal-call(\function)
           throw FOUND
       try
         walk @macro-expand-all(node), walker

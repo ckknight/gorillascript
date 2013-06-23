@@ -160,7 +160,7 @@ let make-has-generator-node = #
     let mutable result = false
     if node instanceof LispyNode and node.is-internal-call(\yield, \return)
       return true
-    if node not instanceof ParserNode.Function
+    unless node instanceof LispyNode and node.is-internal-call(\function)
       let FOUND = {}
       try
         node.walk #(n)
@@ -177,7 +177,7 @@ let make-has-generator-node = #
     returnif in-loop-cache.get node
     if node instanceof LispyNode and node.is-internal-call(\continue, \yield, \return)
       return true
-    if node not instanceof ParserNode.Function
+    unless node instanceof LispyNode and node.is-internal-call(\function)
       let FOUND = {}
       try
         node.walk #(n)
@@ -202,7 +202,7 @@ let make-has-generator-node = #
     returnif in-switch-cache.get node
     if node instanceof LispyNode and (node.is-internal-call(\break, \continue, \yield) or (not allow-return and node.is-internal-call(\return)))
       return true
-    if node not instanceof ParserNode.Function
+    unless node instanceof LispyNode and node.is-internal-call(\function)
       let FOUND = {}
       try
         node.walk #(n)
@@ -1370,8 +1370,116 @@ let array-translate(pos as {}, elements, scope, replace-with-slice, allow-array-
           ast.Access pos, head, \concat
           rest
 
-let translators =
-  [ParserNodeType.Function]: do
+let translate-lispy-internal =
+  access: #(node, args, scope, location, unassigned)
+    let t-parent = translate args[0], scope, \expression, unassigned
+    let t-child = translate args[1], scope, \expression, unassigned
+    #-> ast.Access(get-pos(node), t-parent(), t-child())
+  
+  context-call: #(node, args, scope, location, unassigned)
+    let [func, context] = args
+    let real-args = args.slice(2)
+    let t-func = translate func, scope, \expression, unassigned
+    if context not instanceof LispyNode or not context.is-internal-call(\spread)
+      let t-context = translate(context, scope, \expression, unassigned)
+      let t-args = array-translate(get-pos(node), real-args, scope, false, true, unassigned)
+      #
+        let func = t-func()
+        let context = t-context()
+        let args = t-args()
+        if args instanceof ast.Arr
+          ast.Call get-pos(node),
+            ast.Access get-pos(node), func, \call
+            [context, ...args.elements]
+        else
+          ast.Call get-pos(node),
+            ast.Access get-pos(node), func, \apply
+            [context, args]
+    else
+      let context-and-args = args.slice(1)
+      let t-context-and-args = array-translate(get-pos(node), context-and-args, scope, false, true, unassigned)
+      #
+        let func = t-func()
+        let context-and-args = t-context-and-args()
+        scope.maybe-cache context-and-args, Type.array, #(set-context-and-args, context-and-args)
+          scope.add-helper \__slice
+          ast.Call get-pos(node),
+            ast.Access get-pos(node), func, \apply
+            [
+              ast.Access get-pos(node), set-context-and-args, 0
+              ast.Call get-pos(node),
+                ast.Access get-pos(node),
+                  context-and-args
+                  \slice
+                [ast.Const get-pos(node), 1]
+            ]
+
+  new: #(node, args, scope, location, unassigned)
+    let t-func = translate args[0], scope, \expression, unassigned
+    let t-args = array-translate(get-pos(node), args[1 to -1], scope, false, true, unassigned)
+    #
+      let func = t-func()
+      let args = t-args()
+      if args instanceof ast.Arr
+        ast.Call get-pos(node),
+          func
+          args.elements
+          true
+      else
+        scope.add-helper \__new
+        ast.Call get-pos(node),
+          ast.Access get-pos(node),
+            ast.Ident get-pos(node), \__new
+            ast.Const get-pos(node), \apply
+          [func, args]
+
+  label: #(node, args, scope, location, unassigned)
+    let t-label = translate args[0], scope, \label
+    let t-node = translate args[1], scope, location, unassigned
+    # t-node().with-label(t-label())
+  
+  block: #(node, args, scope, location, unassigned)
+    let t-nodes = for subnode, i, len in args
+      translate subnode, scope, location, unassigned
+    # ast.Block get-pos(node), (for t-node in t-nodes; t-node())
+  
+  break: #(node, args, scope)
+    let t-label = args[0] and translate args[0], scope, \label
+    # ast.Break get-pos(node), t-label?()
+  
+  continue: #(node, args, scope)
+    let t-label = args[0] and translate args[0], scope, \label
+    # ast.Continue get-pos(node), t-label?()
+  
+  debugger: #(node)
+    # ast.Debugger get-pos(node)
+  
+  embed-write: #(node, args, scope, location, unassigned)
+    let wrapped = if args[0].is-statement()
+      let inner-scope = args[0].scope.clone()
+      LispyNode.Call args[0].index, args[0].scope,
+        LispyNode.InternalCall \function, args[0].index, inner-scope,
+          LispyNode.InternalCall \array, args[0].index, inner-scope
+          LispyNode.InternalCall \auto-return, args[0].index, inner-scope,
+            args[0].rescope(inner-scope)
+          LispyNode.Value args[0].index, true
+          LispyNode.Symbol.nothing args[0].index
+          LispyNode.Value args[0].index, false
+    else
+      args[0]
+    let t-text = translate wrapped, scope, \expression, unassigned
+    #
+      ast.Call get-pos(node),
+        ast.Ident get-pos(node), \write
+        [
+          t-text()
+          ...(if args[1].const-value()
+            [ast.Const get-pos(node), true]
+          else
+            [])
+        ]
+
+  function: do
     let primitive-types = {
       Boolean: \boolean
       String: \string
@@ -1482,167 +1590,59 @@ let translators =
         else
           throw Error "Unknown type to translate: $(typeof! node)"
     
-    #(node, scope, location) -> #
-      let mutable inner-scope = scope.clone(not not node.bound)
+    #(node, args, scope, location, unassigned) -> #
+      let mutable inner-scope = scope.clone(not node.args[2].is-const() or not not node.args[2].const-value())
       let real-inner-scope = inner-scope
-      if node.generator and not inner-scope.bound
+      let is-generator = node.args[4].const-value()
+      if is-generator and not inner-scope.bound
         inner-scope := inner-scope.clone(true)
       let param-idents = []
       let initializers = []
 
-      for p, i, len in node.params
+      for p, i, len in node.args[0].args
         let param = translate-param p, inner-scope, false
         if param.spread
           throw Error "Encountered a spread parameter"
         param-idents.push param.ident
         initializers.push ...param.init
 
-      let convert-auto-return = if node.bound instanceof ParserNode
-        #(node) node.args[0]
+      let convert-auto-return = if not node.args[2].is-const()
+        #(subnode) subnode.args[0]
       else
-        #(node)
-          LispyNode.Call node.index, node.scope,
-            LispyNode.Symbol.return(node.index)
-            node.args[0]
-      let translate-auto-return(mutable node)
-        if node instanceof ParserNode.Function
-          return node
-        if node instanceof LispyNode and node.is-internal-call \auto-return
-          node := convert-auto-return(node)
+        #(subnode)
+          LispyNode.Call subnode.index, subnode.scope,
+            LispyNode.Symbol.return subnode.index
+            subnode.args[0]
+      let translate-auto-return(mutable subnode)
+        if subnode instanceof LispyNode and subnode.is-internal-call \function
+          return subnode
+        if subnode instanceof LispyNode and subnode.is-internal-call \auto-return
+          subnode := convert-auto-return(subnode)
 
-        node.walk translate-auto-return
+        subnode.walk translate-auto-return
       
       let unassigned = {}
-      let {mutable body, wrap} = translate-function-body(get-pos(node), node.generator, inner-scope, translate-auto-return(node.body), unassigned)
+      let {mutable body, wrap} = translate-function-body(get-pos(node), is-generator, inner-scope, translate-auto-return(node.args[1]), unassigned)
       inner-scope.release-tmps()
-      body := ast.Block get-pos(node.body), [...initializers, body]
-      if inner-scope.used-this or node.bound instanceof ParserNode
-        if node.bound instanceof ParserNode
-          let fake-this = ast.Ident get-pos(node.body), \_this
+      let body-pos = get-pos(node.args[1])
+      body := ast.Block body-pos, [...initializers, body]
+      if not node.args[2].is-const()
+        let fake-this = ast.Ident body-pos, \_this
+        inner-scope.add-variable fake-this // TODO: the type for this?
+        body := ast.Block body-pos,
+          * ast.Assign body-pos, fake-this, translate(node.args[2], scope, \expression, unassigned)()
+          * body
+          * ast.Return body-pos, fake-this
+      else if inner-scope.used-this
+        if inner-scope.bound
+          scope.used-this := true
+        if (inner-scope.has-bound or is-generator) and not real-inner-scope.bound
+          let fake-this = ast.Ident body-pos, \_this
           inner-scope.add-variable fake-this // TODO: the type for this?
-          body := ast.Block get-pos(node.body),
-            * ast.Assign get-pos(node.body), fake-this, translate(node.bound, scope, \expression, unassigned)()
+          body := ast.Block body-pos,
+            * ast.Assign body-pos, fake-this, ast.This(body-pos)
             * body
-            * ast.Return get-pos(node.body), fake-this
-        else
-          if inner-scope.bound
-            scope.used-this := true
-          if (inner-scope.has-bound or node.generator) and not real-inner-scope.bound
-            let fake-this = ast.Ident get-pos(node.body), \_this
-            inner-scope.add-variable fake-this // TODO: the type for this?
-            body := ast.Block get-pos(node.body),
-              * ast.Assign get-pos(node.body), fake-this, ast.This(get-pos(node.body))
-              * body
-      if node.curry
-        throw Error "Expected node to already be curried"
       wrap ast.Func get-pos(node), null, param-idents, inner-scope.get-variables(), body, []
-
-let translate-lispy-internal =
-  access: #(node, args, scope, location, unassigned)
-    let t-parent = translate args[0], scope, \expression, unassigned
-    let t-child = translate args[1], scope, \expression, unassigned
-    #-> ast.Access(get-pos(node), t-parent(), t-child())
-  
-  context-call: #(node, args, scope, location, unassigned)
-    let [func, context] = args
-    let real-args = args.slice(2)
-    let t-func = translate func, scope, \expression, unassigned
-    if context not instanceof LispyNode or not context.is-internal-call(\spread)
-      let t-context = translate(context, scope, \expression, unassigned)
-      let t-args = array-translate(get-pos(node), real-args, scope, false, true, unassigned)
-      #
-        let func = t-func()
-        let context = t-context()
-        let args = t-args()
-        if args instanceof ast.Arr
-          ast.Call get-pos(node),
-            ast.Access get-pos(node), func, \call
-            [context, ...args.elements]
-        else
-          ast.Call get-pos(node),
-            ast.Access get-pos(node), func, \apply
-            [context, args]
-    else
-      let context-and-args = args.slice(1)
-      let t-context-and-args = array-translate(get-pos(node), context-and-args, scope, false, true, unassigned)
-      #
-        let func = t-func()
-        let context-and-args = t-context-and-args()
-        scope.maybe-cache context-and-args, Type.array, #(set-context-and-args, context-and-args)
-          scope.add-helper \__slice
-          ast.Call get-pos(node),
-            ast.Access get-pos(node), func, \apply
-            [
-              ast.Access get-pos(node), set-context-and-args, 0
-              ast.Call get-pos(node),
-                ast.Access get-pos(node),
-                  context-and-args
-                  \slice
-                [ast.Const get-pos(node), 1]
-            ]
-
-  new: #(node, args, scope, location, unassigned)
-    let t-func = translate args[0], scope, \expression, unassigned
-    let t-args = array-translate(get-pos(node), args[1 to -1], scope, false, true, unassigned)
-    #
-      let func = t-func()
-      let args = t-args()
-      if args instanceof ast.Arr
-        ast.Call get-pos(node),
-          func
-          args.elements
-          true
-      else
-        scope.add-helper \__new
-        ast.Call get-pos(node),
-          ast.Access get-pos(node),
-            ast.Ident get-pos(node), \__new
-            ast.Const get-pos(node), \apply
-          [func, args]
-
-  label: #(node, args, scope, location, unassigned)
-    let t-label = translate args[0], scope, \label
-    let t-node = translate args[1], scope, location, unassigned
-    # t-node().with-label(t-label())
-  
-  block: #(node, args, scope, location, unassigned)
-    let t-nodes = for subnode, i, len in args
-      translate subnode, scope, location, unassigned
-    # ast.Block get-pos(node), (for t-node in t-nodes; t-node())
-  
-  break: #(node, args, scope)
-    let t-label = args[0] and translate args[0], scope, \label
-    # ast.Break get-pos(node), t-label?()
-  
-  continue: #(node, args, scope)
-    let t-label = args[0] and translate args[0], scope, \label
-    # ast.Continue get-pos(node), t-label?()
-  
-  debugger: #(node)
-    # ast.Debugger get-pos(node)
-  
-  embed-write: #(node, args, scope, location, unassigned)
-    let wrapped = if args[0].is-statement()
-      let inner-scope = args[0].scope.clone()
-      LispyNode.Call args[0].index, args[0].scope,
-        ParserNode.Function args[0].index, inner-scope,
-          []
-          LispyNode.InternalCall \auto-return, args[0].index, inner-scope,
-            args[0].rescope(inner-scope)
-          true
-    else
-      args[0]
-    let t-text = translate wrapped, scope, \expression, unassigned
-    #
-      ast.Call get-pos(node),
-        ast.Ident get-pos(node), \write
-        [
-          t-text()
-          ...(if args[1].const-value()
-            [ast.Const get-pos(node), true]
-          else
-            [])
-        ]
   
   throw: #(node, args, scope, location, unassigned)
     let t-node = translate args[0], scope, \expression, unassigned
@@ -2002,15 +2002,9 @@ let translate-lispy(node as LispyNode, scope as Scope, location as String, unass
     translate-lispy-call node, func, args, scope, location, unassigned
 
 let translate(node as Object, scope as Scope, location as String, unassigned)
-  if node instanceof LispyNode
-    return translate-lispy(node, scope, location, unassigned)
-  unless translators ownskey node.type-id
+  unless node instanceof LispyNode
     throw Error "Unable to translate unknown node type: $(typeof! node)"
-  
-  let ret = translators[node.type-id](node, scope, location, unassigned)
-  unless is-function! ret
-    throw Error "Translated non-function: $(typeof! ret)"
-  ret
+  return translate-lispy(node, scope, location, unassigned)
 
 let translate-function-body(pos, is-generator, scope, body, unassigned = {})
   let mutable is-simple-generator = false

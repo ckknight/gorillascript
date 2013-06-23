@@ -1971,7 +1971,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
         else if @is-access(param-ident)
           @ident(@value(@child(param-ident)))
         else
-          @error "Not an ident or this-access: $(typeof! param-ident) $(param-ident.inspect())", param-ident
+          @error "Not an ident or this-access: $(typeof! param-ident) $(param-ident?.inspect?() or '')", param-ident
         let type-check = if as-type?
           translate-type-check(ident, @name(ident), as-type, default-value?)
         else
@@ -2029,10 +2029,11 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
       else
         init.splice init-index, 0, AST(param)
           let $ident = arguments[$spread-counter + ($i - $found-spread - 1)]
-  
+
   let mutable result = if init.length or changed
     let body = @func-body(node)
-    @rewrap(@func(params
+    @rewrap(@func(
+      params
       AST(body)
         $init
         void

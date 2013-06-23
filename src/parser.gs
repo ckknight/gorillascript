@@ -3186,16 +3186,17 @@ let _FunctionDeclaration = do
     if not body
       parser.pop-scope()
       return
-    let func = parser.Function index,
-      params.value
+
+    let func = LInternalCall \function, index, parser.scope.peek(),
+      LInternalCall \array, index, parser.scope.peek(), ...params.value
       if flags-value.auto-return
         LInternalCall \auto-return, body.value.index, body.value.scope,
           body.value
       else
         body.value
-      flags-value.bound
-      as-type.value
-      flags-value.generator
+      LValue index, flags-value.bound
+      as-type.value or LSymbol.nothing index
+      LValue index, flags-value.generator
     let mutable result = mutate-function func, parser, index
     if flags-value.curry and params.value.length > 1
       // TODO: verify that there are no spread parameters
@@ -3456,18 +3457,23 @@ let CustomOperatorCloseParenthesis = do
     let node = LSymbol.ident index, parser.scope.peek(), \x
     let scope = parser.push-scope(true)
     scope.add node, false, Type.any
-    let result = mutate-function parser.Function(index,
-      [LInternalCall \param, index, parser.scope.peek(),
-        node
-        LSymbol.nothing index
-        LValue index, false
-        LValue index, false
-        LSymbol.nothing index]
+
+    let result = mutate-function (LInternalCall \function, index, parser.scope.peek(),
+      LInternalCall \array, index, parser.scope.peek(),
+        LInternalCall \param, index, parser.scope.peek(),
+          node
+          LSymbol.nothing index
+          LValue index, false
+          LValue index, false
+          LSymbol.nothing index
       LInternalCall \auto-return, index, parser.scope.peek(),
         operator.func {
           op: op.value
           node
-        }, parser, index), parser, index
+        }, parser, index
+      LValue index, false
+      LSymbol.nothing index
+      LValue index, false), parser, index
     parser.pop-scope()
     Box close.index, result
   let handle-binary-operator(operator, parser, mutable index)
@@ -3489,21 +3495,26 @@ let CustomOperatorCloseParenthesis = do
     let scope = parser.push-scope(true)
     scope.add left, false, Type.any
     scope.add right, false, Type.any
-    let result = mutate-function parser.Function(index,
-      for ident in [left, right]
-        LInternalCall \param, index, parser.scope.peek(),
-          ident
-          LSymbol.nothing index
-          LValue index, false
-          LValue index, false
-          LSymbol.nothing index
+    
+    let result = mutate-function (LInternalCall \function, index, parser.scope.peek(),
+      LInternalCall \array, index, parser.scope.peek(),
+        ...for ident in [left, right]
+          LInternalCall \param, index, parser.scope.peek(),
+            ident
+            LSymbol.nothing index
+            LValue index, false
+            LValue index, false
+            LSymbol.nothing index
       LInternalCall \auto-return, index, parser.scope.peek(),
         operator.func {
           left
           inverted
           op: op.value
           right
-        }, parser, index), parser, index
+        }, parser, index
+      LValue index, false
+      LSymbol.nothing index
+      LValue index, false), parser, index
     parser.pop-scope()
     Box close.index, LCall index, parser.scope.peek(),
       LSymbol.ident index, parser.scope.peek(), \__curry
@@ -3550,20 +3561,25 @@ define Parenthetical = allow-space-before-access sequential(
           return left
         let scope = parser.push-scope(true)
         let right = parser.make-tmp index, \x
-        let result = mutate-function parser.Function(index,
-          [LInternalCall \param, index, parser.scope.peek(),
-            right
-            LSymbol.nothing index
-            LValue index, false
-            LValue index, false
-            LSymbol.nothing index]
+
+        let result = mutate-function (LInternalCall \function, index, parser.scope.peek(),
+          LInternalCall \array, index, parser.scope.peek(),
+            LInternalCall \param, index, parser.scope.peek(),
+              right
+              LSymbol.nothing index
+              LValue index, false
+              LValue index, false
+              LSymbol.nothing index
           LInternalCall \auto-return, index, parser.scope.peek(),
             operator.operator.func {
               left: left.rescope(scope)
               operator.inverted
               operator.op
               right
-            }, parser, index), parser, index
+            }, parser, index
+          LValue index, false
+          LSymbol.nothing index
+          LValue index, false), parser, index
         parser.pop-scope()
         result
     CustomOperatorCloseParenthesis
@@ -3573,20 +3589,25 @@ define Parenthetical = allow-space-before-access sequential(
       CloseParenthesis) |> mutate #({right, operator: {op, operator, inverted}}, parser, index)
         let scope = parser.push-scope(true)
         let left = parser.make-tmp index, \x
-        let result = mutate-function parser.Function(index,
-          [LInternalCall \param, index, parser.scope.peek(),
-            left
-            LSymbol.nothing index
-            LValue index, false
-            LValue index, false
-            LSymbol.nothing index]
+
+        let result = mutate-function (LInternalCall \function, index, parser.scope.peek(),
+          LInternalCall \array, index, parser.scope.peek(),
+            LInternalCall \param, index, parser.scope.peek(),
+              left
+              LSymbol.nothing index
+              LValue index, false
+              LValue index, false
+              LSymbol.nothing index
           LInternalCall \auto-return, index, parser.scope.peek(),
             operator.func {
               left
               inverted
               op
               right: right.rescope scope
-            }, parser, index), parser, index
+            }, parser, index
+          LValue index, false
+          LSymbol.nothing index
+          LValue index, false), parser, index
         parser.pop-scope()
         result
     sequential(
@@ -3594,19 +3615,24 @@ define Parenthetical = allow-space-before-access sequential(
       CloseParenthesis) |> mutate #(tail, parser, index)
         let scope = parser.push-scope(true)
         let left = parser.make-tmp index, \o
-        let result = mutate-function parser.Function(index,
-          [LInternalCall \param, index, parser.scope.peek(),
-            left
-            LSymbol.nothing index
-            LValue index, false
-            LValue index, false
-            LSymbol.nothing index]
+
+        let result = mutate-function (LInternalCall \function, index, parser.scope.peek(),
+          LInternalCall \array, index, parser.scope.peek(),
+            LInternalCall \param, index, parser.scope.peek(),
+              left
+              LSymbol.nothing index
+              LValue index, false
+              LValue index, false
+              LSymbol.nothing index
           LInternalCall \auto-return, index, parser.scope.peek(),
             convert-invocation-or-access(false, {
               type: \normal
               -existential
               node: left
-            }, tail, parser, index).rescope scope), parser, index
+            }, tail, parser, index).rescope scope
+          LValue index, false
+          LSymbol.nothing index
+          LValue index, false), parser, index
         parser.pop-scope()
         result)])
 
@@ -5268,8 +5294,8 @@ class Parser
     LInternalCall \root, index, scope,
       LValue index, null
       LInternalCall \return, index, scope,
-        @Function(index
-          [
+        LInternalCall \function, index, scope,
+          LInternalCall \array, index, scope,
             params
             ...for name in [\__wrap, \__node, \__const, \__value, \__symbol, \__call]
               LInternalCall \param, index, scope,
@@ -5278,8 +5304,10 @@ class Parser
                 LValue index, false // is-spread
                 LValue index, true // is-mutable
                 LSymbol.nothing index // as-type
-          ]
-          LInternalCall \auto-return, body.index, body.scope, body)
+          LInternalCall \auto-return, body.index, body.scope, body
+          LValue index, false
+          LSymbol.nothing index
+          LValue index, false
       LValue index, false
       LValue index, false
   
