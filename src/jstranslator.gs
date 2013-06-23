@@ -525,6 +525,7 @@ class GeneratorBuilder
           ast.Call @pos,
             ast.Ident @pos, \Error
             [ast.Binary @pos, "Unknown state: ", "+", state-ident]
+            true
     body.push ast.Func @pos, throw-ident, [err], [], for reduce catch-info in catches by -1, current = ast.Block @pos, [ast.Call(@pos, close, []), ast.Throw @pos, err]
       let err-ident = catch-info.t-ident()
       @scope.add-variable err-ident
@@ -1708,7 +1709,7 @@ let translate-lispy-internal = [] <<<
         # ast.Regex get-pos(node), String(args[1].const-value()), String(args[2].const-value())
       else
         # ast.Regex get-pos(node), String(args[1].const-value())
-    
+
     let t-func = translate args[0], scope, \expression, unassigned
     let t-args = array-translate(get-pos(node), args[1 to -1], scope, false, true, unassigned)
     #
@@ -1949,6 +1950,15 @@ let translate-lispy-operator = [] <<<
       else
         ast.Binary(get-pos(node), left, op-name, right)
 
+let primordials-better-with-new = {
+  +Error
+  +RangeError
+  +ReferenceError
+  +SyntaxError
+  +TypeError
+  +URIError
+}
+
 let translate-lispy-call(node, func, args, scope, location, unassigned)
   if func.is-symbol and func.is-ident
     if func.name == \RegExp and args[0].is-const() and (not args[1] or args[1].is-const())
@@ -1968,6 +1978,7 @@ let translate-lispy-call(node, func, args, scope, location, unassigned)
       ast.Call get-pos(node),
         func
         args.elements
+        func instanceof ast.Ident and primordials-better-with-new ownskey func.name
     else if func instanceof ast.Binary and func.op == "."
       scope.maybe-cache func.left, Type.function, #(set-parent, parent)
         ast.Call get-pos(node),

@@ -673,7 +673,7 @@ class MacroContext
     if obj == null or typeof obj in [\string, \number, \boolean, \undefined]
       LispyNode.Value index, obj
     else if obj instanceof RegExp
-      LispyNode.Call obj.index, scope,
+      LispyNode.InternalCall \new, obj.index, scope,
         Ident obj.index, scope, \RegExp
         LispyNode.Value index, obj.source
         LispyNode.Value index, "$(if obj.global then 'g' else '')$(if obj.ignore-case then 'i' else '')$(if obj.multiline then 'm' else '')$(if obj.sticky then 'y' else '')"

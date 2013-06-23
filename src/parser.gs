@@ -2652,7 +2652,7 @@ let RegexLiteral = do
     let text = concat-string parser, index, string-parts
     if text.is-const()
       try
-        RegExp(String(text.const-value()))
+        new RegExp(String(text.const-value()))
       catch e
         throw ParserError e.message, parser, index
     let seen-flags = []
@@ -2662,7 +2662,7 @@ let RegexLiteral = do
       else if flag not in [\g, \i, \m, \y]
         throw ParserError "Invalid regular expression: unknown flag $(quote flag)", parser, index
       seen-flags.push flag
-    LCall index, parser.scope.peek(),
+    LInternalCall \new, index, parser.scope.peek(),
       LSymbol.ident index, parser.scope.peek(), \RegExp
       text
       LValue index, flags
