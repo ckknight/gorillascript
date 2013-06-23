@@ -1,7 +1,6 @@
 import 'shared.gs'
 
 require! Type: './types'
-require! Node: './parser-nodes'
 require! LispyNode: './parser-lispynodes'
 
 let Ident = LispyNode.Symbol.ident

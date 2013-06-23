@@ -3,7 +3,7 @@ import 'shared.gs'
 require! ast: './jsast'
 let AstNode = ast.Node
 require! Type: './types'
-let {Node: ParserNode, MacroHolder} = require('./parser')
+let {MacroHolder} = require('./parser')
 require! LispyNode: './parser-lispynodes'
 let {Cache, is-primordial} = require('./utils')
 
@@ -154,7 +154,7 @@ class Scope
     Scope(@options, @macros, bound, { extends @used-tmps }, @helper-names, @variables, { extends @tmps })
 
 let make-has-generator-node = #
-  let in-loop-cache = Cache<ParserNode, Boolean>()
+  let in-loop-cache = Cache<LispyNode, Boolean>()
   let has-in-loop(node)
     async node <- in-loop-cache.get-or-add node
     let mutable result = false
@@ -171,7 +171,7 @@ let make-has-generator-node = #
         return true
     false
 
-  let in-switch-cache = Cache<ParserNode, Boolean>()
+  let in-switch-cache = Cache<LispyNode, Boolean>()
   let has-in-switch(node)
     async node <- in-switch-cache.get-or-add node
     returnif in-loop-cache.get node
@@ -192,9 +192,9 @@ let make-has-generator-node = #
         return true
     false
   
-  let return-free-cache = Cache<ParserNode, Boolean>()
-  let normal-cache = Cache<ParserNode, Boolean>()
-  let has-generator-node(node as ParserNode, allow-return as Boolean)
+  let return-free-cache = Cache<LispyNode, Boolean>()
+  let normal-cache = Cache<LispyNode, Boolean>()
+  let has-generator-node(node as LispyNode, allow-return as Boolean)
     async node <- (if allow-return then return-free-cache else normal-cache).get-or-add node
     if not allow-return
       returnif return-free-cache.get node
@@ -592,7 +592,7 @@ let make-pos(line as Number, column as Number, file as String|void)
     pos.file := file
   pos
 
-let mutable get-pos = #(node as ParserNode)
+let mutable get-pos = #(node as LispyNode)
   throw Error "get-pos must be overridden"
 
 const UNASSIGNED_TAINT_KEY = "\0"
@@ -685,7 +685,7 @@ let generator-translate = do
           scope.release-ident tmp
     else
       #-> scope.release-ident t-tmp()
-  let has-single-node-with-noops-no-spread(nodes as [ParserNode], state as GeneratorState)
+  let has-single-node-with-noops-no-spread(nodes as [LispyNode], state as GeneratorState)
     let mutable count = 0
     for node in nodes
       if node instanceof LispyNode and node.is-internal-call(\spread)
@@ -1029,7 +1029,7 @@ let generator-translate = do
 
       generator-translate-expression-lispy-call node, func, args, scope, state, assign-to, unassigned
   
-  let generator-translate-expression(node as ParserNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
+  let generator-translate-expression(node as LispyNode, scope as Scope, state as GeneratorState, assign-to as Boolean|->, unassigned)
     if state.has-generator-node node
       if node instanceof LispyNode
         return generator-translate-expression-lispy(node, scope, state, assign-to, unassigned)
@@ -1300,7 +1300,7 @@ let generator-translate = do
       ret.t-node()
       ret.cleanup())
   
-  #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
+  #(node as LispyNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
     if state.has-generator-node node
       if node instanceof LispyNode
         return generator-translate-lispy(node, scope, state, break-state, continue-state, unassigned, is-top)
@@ -2037,7 +2037,7 @@ let translate-function-body(pos, is-generator, scope, body, unassigned = {})
     body: translated-body
   }
 
-let make-get-pos(get-position as ->) #(node as ParserNode)
+let make-get-pos(get-position as ->) #(node as LispyNode)
   let pos = get-position(node.index)
   make-pos(pos.line, pos.column)
 
@@ -2283,7 +2283,7 @@ module.exports.define-helper := #(macros as MacroHolder, get-position as ->, nam
     throw Error "Expected name to be an Ident, got $(typeof! ident)"
   let helper = if value instanceof AstNode
     value
-  else if value instanceof ParserNode
+  else if value instanceof LispyNode
     translate(value, scope, \expression)()
   else
     throw TypeError "Expected value to be a parser or ast Node, got $(typeof! value)"

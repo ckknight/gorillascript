@@ -4,9 +4,6 @@ const DISABLE_GENERICS = not DEBUG
 
 const CURRENT_ARRAY_LENGTH_NAME = \__current-array-length
 
-const ParserNodeType = {
-}
-
 macro cache-get-or-add!(cache, key, value)
   @maybe-cache cache, #(set-cache, cache)
     @maybe-cache key, #(set-key, key)

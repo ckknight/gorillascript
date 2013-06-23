@@ -20,49 +20,44 @@ let node-to-type = do
     URIError: Type.error
   }
   #(node)
-    require! Node: './parser-nodes'
     require! LispyNode: './parser-lispynodes'
-    if node not instanceof Node
-      throw TypeError("Expected a Node, got $(typeof! node)")
-    if node instanceof LispyNode
-      switch
-      case node.is-value
-        switch node.value
-        case null; Type.null
-        case void; Type.undefined
-        default
-          // shouldn't really occur
-          Type.any
-      case node.is-symbol and node.is-ident
-        if ident-to-type ownskey node.name
-          ident-to-type[node.name]
-        else
-          node.type()
-      case node.is-symbol and node.is-internal and node.is-nothing
-        Type.any
-      case node.is-internal-call(\type-union)
-        for reduce type in node.args, current = Type.none
-          current.union node-to-type(type)
-      case node.is-internal-call(\type-generic)
-        let basetype = node-to-type(node.args[0])
-        let args = for arg in node.args[1 to -1]; node-to-type(arg)
-        if basetype in [Type.array, Type.function]
-          Type.generic basetype.base, ...args
-        else if basetype != Type.any
-          Type.generic basetype, ...args
-        else
-          Type.any
-      case node.is-internal-call(\type-object)
-        let data = {}
-        for i in 0 til node.args.length by 2
-          let key = node.args[i]
-          if key instanceof LispyNode and key.is-const()
-            data[key.const-value()] := node-to-type(node.args[i + 1])
-        Type.make-object data
+    if node not instanceof LispyNode
+      throw TypeError("Expected a LispyNode, got $(typeof! node)")
+    switch
+    case node.is-value
+      switch node.value
+      case null; Type.null
+      case void; Type.undefined
       default
+        // shouldn't really occur
         Type.any
-    else
-      // shouldn't really occur
+    case node.is-symbol and node.is-ident
+      if ident-to-type ownskey node.name
+        ident-to-type[node.name]
+      else
+        node.type()
+    case node.is-symbol and node.is-internal and node.is-nothing
+      Type.any
+    case node.is-internal-call(\type-union)
+      for reduce type in node.args, current = Type.none
+        current.union node-to-type(type)
+    case node.is-internal-call(\type-generic)
+      let basetype = node-to-type(node.args[0])
+      let args = for arg in node.args[1 to -1]; node-to-type(arg)
+      if basetype in [Type.array, Type.function]
+        Type.generic basetype.base, ...args
+      else if basetype != Type.any
+        Type.generic basetype, ...args
+      else
+        Type.any
+    case node.is-internal-call(\type-object)
+      let data = {}
+      for i in 0 til node.args.length by 2
+        let key = node.args[i]
+        if key instanceof LispyNode and key.is-const()
+          data[key.const-value()] := node-to-type(node.args[i + 1])
+      Type.make-object data
+    default
       Type.any
 
 let map(array, func, context)
@@ -94,34 +89,32 @@ let map-async(array, func, context, callback)
       array
 
 let add-param-to-scope(scope, param, force-mutable)!
-  require! Node: './parser-nodes'
   require! LispyNode: './parser-lispynodes'
-  if param instanceof LispyNode
-    if param.is-internal-call()
-      if param.func.is-param
-        let ident = param.args[0]
-        let is-spread = param.args[2].const-value()
-        let is-mutable = force-mutable or param.args[3].const-value()
-        let as-type = param.args[4].convert-nothing(void)
-        if ident instanceofsome [LispyNode.Symbol.ident, LispyNode.Symbol.tmp]
-          scope.add ident, is-mutable, if as-type then node-to-type(as-type) else if is-spread then Type.array else Type.any
-        else if ident instanceof LispyNode and ident.is-internal-call(\access)
-          let [, child] = ident.args
-          if not child.is-const-type(\string)
-            throw Error "Expected constant access: $(typeof! child)"
-          scope.add LispyNode.Symbol.ident(param.index, param.scope, child.value), is-mutable, if as-type then node-to-type(as-type) else if is-spread then Type.array else Type.any
-        else
-          throw Error "Unknown param ident: $(typeof! ident)"
-      else if param.func.is-array
-        for element in param.args by -1
-          add-param-to-scope scope, element, force-mutable
-      else if param.func.is-object
-        for element in param.args[-1 to 1 by -1]
-          add-param-to-scope scope, element.args[1], force-mutable
-    else if not (param.is-symbol and param.is-internal and param.is-nothing)
-      throw Error "Unknown param node type: $(typeof! param)"
-  else
+  if param not instanceof LispyNode
     throw Error "Unknown param type: $(typeof! param)"
+  if param.is-internal-call()
+    if param.func.is-param
+      let ident = param.args[0]
+      let is-spread = param.args[2].const-value()
+      let is-mutable = force-mutable or param.args[3].const-value()
+      let as-type = param.args[4].convert-nothing(void)
+      if ident instanceofsome [LispyNode.Symbol.ident, LispyNode.Symbol.tmp]
+        scope.add ident, is-mutable, if as-type then node-to-type(as-type) else if is-spread then Type.array else Type.any
+      else if ident instanceof LispyNode and ident.is-internal-call(\access)
+        let [, child] = ident.args
+        if not child.is-const-type(\string)
+          throw Error "Expected constant access: $(typeof! child)"
+        scope.add LispyNode.Symbol.ident(param.index, param.scope, child.value), is-mutable, if as-type then node-to-type(as-type) else if is-spread then Type.array else Type.any
+      else
+        throw Error "Unknown param ident: $(typeof! ident)"
+    else if param.func.is-array
+      for element in param.args by -1
+        add-param-to-scope scope, element, force-mutable
+    else if param.func.is-object
+      for element in param.args[-1 to 1 by -1]
+        add-param-to-scope scope, element.args[1], force-mutable
+  else if not (param.is-symbol and param.is-internal and param.is-nothing)
+    throw Error "Unknown param node type: $(typeof! param)"
 
 exports <<< {
   node-to-type

@@ -1,7 +1,6 @@
 import 'shared.gs'
 let {to-JS-source} = require './jsutils'
 require! Type: './types'
-require! OldNode: './parser-nodes'
 let {Cache, is-primordial} = require './utils'
 let {node-to-type} = require './parser-utils'
 
@@ -14,7 +13,7 @@ let is-primitive(value)
 /**
  * Base class for the other nodes, not intended to be used on its own
  */
-class Node extends OldNode
+class Node
   def constructor()
     throw Error "Node is not intended to be initialized directly"
   
@@ -25,6 +24,7 @@ class Node extends OldNode
   
   def is-noop
   def is-const() -> false
+  def const-value() -> throw Error("Not a const: $(typeof! this)")
   def is-const-value() -> false
   def is-const-type() -> false
   def is-literal() -> @is-const()
@@ -46,6 +46,47 @@ class Node extends OldNode
       Type.undefined
     else
       Type.none
+  
+  def mutate-last(o, func, context, include-noop)
+    func@(context, this) ? this
+
+  def with-label(label)
+    if not label
+      this
+    else
+      InternalCall \label, @index, @scope,
+        label
+        this
+
+  def _reduce(parser)
+    @walk #(node) -> node.reduce(parser)
+  def reduce(parser)
+    if @_reduced?
+      @_reduced
+    else
+      let reduced = @_reduce(parser)
+      if reduced == this
+        @_reduced := this
+      else
+        @_reduced := reduced.reduce(parser)
+
+  def rescope(new-scope)
+    if not @scope or @scope == new-scope
+      return this
+    let old-scope = @scope
+    @scope := new-scope
+    let walker(node)
+      let node-scope = node.scope
+      if not node-scope or node-scope == new-scope
+        node
+      else if node-scope == old-scope
+        node.rescope new-scope
+      else
+        let parent = node-scope.parent
+        if parent == old-scope
+          node-scope.reparent(new-scope)
+        node.walk walker
+    @walk walker
 
 /**
  * Represents a constant primitive value such as a number, string, boolean,
@@ -119,7 +160,7 @@ class Symbol extends Node
     
     let internal-symbols =
       access: {
-        validate-args: #(parent as OldNode, child as OldNode, ...rest)
+        validate-args: #(parent as Node, child as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to access"
         _type: do
@@ -499,7 +540,7 @@ class Symbol extends Node
             cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[1].is-noop(parser)
       }
       array: {
-        validate-args(...args as [OldNode]) ->
+        validate-args(...args as [Node]) ->
         _type() Type.array
         _is-literal: do
           let cache = Cache<Call, Boolean>()
@@ -515,7 +556,7 @@ class Symbol extends Node
       }
       auto-return: {
         -do-wrap-args
-        validate-args(node as OldNode, ...rest)
+        validate-args(node as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to return"
         +is-goto
@@ -612,7 +653,7 @@ class Symbol extends Node
       }
       break: {
         -do-wrap-args
-        validate-args(label as OldNode|null, ...rest)
+        validate-args(label as Node|null, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to break"
         +is-goto
@@ -625,7 +666,7 @@ class Symbol extends Node
             throw Error "Too many arguments to comment"
       }
       context-call: {
-        validate-args(func as OldNode, context as OldNode) ->
+        validate-args(func as Node, context as Node) ->
         _type(call, parser)
           let func = call.args[0]
           if is-function! func._type
@@ -636,7 +677,7 @@ class Symbol extends Node
       }
       continue: {
         -do-wrap-args
-        validate-args(label as OldNode|null, ...rest)
+        validate-args(label as Node|null, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to continue"
         +is-goto
@@ -644,7 +685,7 @@ class Symbol extends Node
       }
       custom: {
         -do-wrap-args
-        validate-args(name as Value, ...rest as [OldNode]) ->
+        validate-args(name as Value, ...rest as [Node]) ->
       }
       debugger: {
         -do-wrap-args
@@ -655,13 +696,13 @@ class Symbol extends Node
       }
       embed-write: {
         -do-wrap-args
-        validate-args(text as OldNode, escape as Value, ...rest)
+        validate-args(text as Node, escape as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to embed-write"
       }
       for: {
         -do-wrap-args
-        validate-args(init as OldNode, test as OldNode, step as OldNode, body as OldNode, ...rest)
+        validate-args(init as Node, test as Node, step as Node, body as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to for"
         +used-as-statement
@@ -671,7 +712,7 @@ class Symbol extends Node
       }
       for-in: {
         -do-wrap-args
-        validate-args(key as OldNode, object as OldNode, body as OldNode, ...rest)
+        validate-args(key as Node, object as Node, body as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to for-in"
         +used-as-statement
@@ -681,7 +722,7 @@ class Symbol extends Node
       }
       function: {
         -do-wrap-args
-        validate-args(params as Node, body as OldNode, bound as OldNode, as-type as OldNode, is-generator as Value)
+        validate-args(params as Node, body as Node, bound as Node, as-type as Node, is-generator as Value)
           if not params.is-internal-call(\array)
             throw Error "Expected params to be an internal Array call, got $(typeof! params)"
         _type: do
@@ -698,7 +739,7 @@ class Symbol extends Node
       }
       if: {
         -do-wrap-args
-        validate-args(test as OldNode, when-true as OldNode, when-false as OldNode, ...rest)
+        validate-args(test as Node, when-true as Node, when-false as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to if"
         _type: do
@@ -759,7 +800,7 @@ class Symbol extends Node
       }
       label: {
         -do-wrap-args
-        validate-args(label as OldNode, node as OldNode, ...rest)
+        validate-args(label as Node, node as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to label"
         +used-as-statement
@@ -796,7 +837,7 @@ class Symbol extends Node
         */
       }
       new: {
-        validate-args(ctor as OldNode) ->
+        validate-args(ctor as Node) ->
         _type: do
           let PRIMORDIAL_CONSTRUCTOR_TYPES = {
             Array: Type.array
@@ -840,7 +881,7 @@ class Symbol extends Node
             value
       }
       object: {
-        validate-args(prototype as OldNode, ...pairs)!
+        validate-args(prototype as Node, ...pairs)!
           if DEBUG
             for pair, i in pairs
               if pair not instanceof Node or not pair.is-internal-call(\array)
@@ -880,13 +921,13 @@ class Symbol extends Node
       }
       param: {
         -do-wrap-args
-        validate-args(ident as OldNode, default-value as OldNode, is-spread as Value, is-mutable as Value, as-type as OldNode, ...rest)
+        validate-args(ident as Node, default-value as Node, is-spread as Value, is-mutable as Value, as-type as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to param"
       }
       return: {
         -do-wrap-args
-        validate-args(node as OldNode, ...rest)
+        validate-args(node as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to return"
         +is-goto
@@ -896,19 +937,19 @@ class Symbol extends Node
       }
       root: {
         -do-wrap-args
-        validate-args(file as Value, body as OldNode, is-embedded as Value, is-generator as Value, ...rest)
+        validate-args(file as Value, body as Node, is-embedded as Value, is-generator as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to return"
         +used-as-statement
       }
       spread: {
-        validate-args(node as OldNode, ...rest)
+        validate-args(node as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to spread"
       }
       switch: {
         -do-wrap-args
-        validate-args(...args as [OldNode])
+        validate-args(...args as [Node])
           if DEBUG
             let len = args.length
             if len % 3 != 2
@@ -964,20 +1005,20 @@ class Symbol extends Node
             call
       }
       super: {
-        validate-args(child as OldNode) ->
+        validate-args(child as Node) ->
       }
       syntax-choice: {
         -do-wrap-args
       }
       syntax-many: {
         -do-wrap-args
-        validate-args(node as OldNode, multiplier as Value, ...rest)
+        validate-args(node as Node, multiplier as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to throw"
       }
       syntax-param: {
         -do-wrap-args
-        validate-args(node as OldNode, as-type as OldNode, ...rest)
+        validate-args(node as Node, as-type as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to throw"
       }
@@ -985,7 +1026,7 @@ class Symbol extends Node
         -do-wrap-args
       }
       throw: {
-        validate-args(node as OldNode, ...rest)
+        validate-args(node as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to throw"
         _type()
@@ -1003,7 +1044,7 @@ class Symbol extends Node
         -do-wrap-args
         _is-statement(call)
           call.args[0].is-statement()
-        validate-args(node as OldNode, ...tmp-ids as [Value]) ->
+        validate-args(node as Node, ...tmp-ids as [Value]) ->
         _type(call, parser)
           call.args[0].type parser
         _return-type(call, parser, is-last)
@@ -1040,7 +1081,7 @@ class Symbol extends Node
       }
       try-catch: {
         -do-wrap-args
-        validate-args(try-body as OldNode, catch-ident as OldNode, catch-body as OldNode, ...rest)
+        validate-args(try-body as Node, catch-ident as Node, catch-body as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to try-catch"
         +used-as-statement
@@ -1068,7 +1109,7 @@ class Symbol extends Node
       }
       try-finally: {
         -do-wrap-args
-        validate-args(try-body as OldNode, finally-body as OldNode, ...rest)
+        validate-args(try-body as Node, finally-body as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to try-finally"
         +used-as-statement
@@ -1092,7 +1133,7 @@ class Symbol extends Node
       }
       type-generic: {
         -do-wrap-args
-        validate-args(node as OldNode, arg as OldNode) ->
+        validate-args(node as Node, arg as Node) ->
       }
       type-object: {
         -do-wrap-args
@@ -1103,7 +1144,7 @@ class Symbol extends Node
             for i in 0 til args.length by 2
               if args[i] not instanceof Value
                 throw TypeError "Expected argument #$i to be a Value, got $(typeof! args[i])"
-              if args[i + 1] not instanceof OldNode
+              if args[i + 1] not instanceof Node
                 throw TypeError "Expected argument #$i to be a Value, got $(typeof! args[i])"
       }
       type-union: {
@@ -1111,12 +1152,12 @@ class Symbol extends Node
       }
       var: {
         -do-wrap-args
-        validate-args(node as OldNode, is-mutable as OldNode|null, ...rest)
+        validate-args(node as Node, is-mutable as Node|null, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to var"
       }
       yield: {
-        validate-args(node as OldNode, ...rest)
+        validate-args(node as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to yield"
       }
@@ -1294,7 +1335,7 @@ class Symbol extends Node
       def inspect()
         "Symbol.binary[$(to-JS-source @name)]"
       
-      def validate-args(left as OldNode, right as OldNode, ...rest)
+      def validate-args(left as Node, right as Node, ...rest)
         if DEBUG and rest.length > 0
           throw Error "Too many arguments to binary operator $(@name)"
       
@@ -1930,7 +1971,7 @@ class Symbol extends Node
       def inspect()
         "Symbol.unary[$(to-JS-source @name)]"
       
-      def validate-args(node as OldNode, ...rest)
+      def validate-args(node as Node, ...rest)
         if DEBUG and rest.length > 0
           throw Error "Too many arguments to unary operator $(@name)"
       
@@ -2142,7 +2183,7 @@ class Symbol extends Node
       def inspect()
         "Symbol.assign[$(to-JS-source @name)]"
       
-      def validate-args(left as OldNode, right as OldNode, ...rest)
+      def validate-args(left as Node, right as Node, ...rest)
         if DEBUG and rest.length > 0
           throw Error "Too many arguments to assign operator $(@name)"
       
@@ -2221,14 +2262,14 @@ class Symbol extends Node
       }
 
 class Call extends Node
-  def constructor(@index as Number, @scope, @func as OldNode, ...@args as [OldNode])
+  def constructor(@index as Number, @scope, @func as Node, ...@args as [Node])
     if DEBUG and is-function! func.validate-args
       func.validate-args ...args
   
   def is-call = true
   def node-type = \call
 
-  def cachable = true
+  def cacheable = true
   
   def inspect(depth)
     let depth-1 = if depth? then depth - 1 else null
@@ -2529,7 +2570,7 @@ class MacroAccess extends Node
       else
         obj
     let walk-item(item, func, context)
-      if item instanceof OldNode
+      if item instanceof Node
         func@(context, item) ? item.walk(func, context)
       else if is-array! item
         walk-array item, func, context
