@@ -4808,8 +4808,6 @@ let _Block-mutator(lines, parser, index)
     for part, j in item
       if DEBUG and part not instanceof LispyNode
         throw TypeError "Expected lines[$i][$j] to be a LispyNode, got $(typeof! part)"
-      else if part.is-value
-        nodes.push part
       else if part.is-internal-call(\block)
         nodes.push ...part.args
       else if not is-nothing(part)

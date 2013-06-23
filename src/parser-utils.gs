@@ -24,40 +24,45 @@ let node-to-type = do
       require! LispyNode: './parser-lispynodes'
       if node not instanceof LispyNode
         throw TypeError("Expected a LispyNode, got $(typeof! node)")
-    switch
-    case node.is-value
+    switch node.node-type-id
+    case LispyNodeTypeId.Value
       switch node.value
       case null; Type.null
       case void; Type.undefined
       default
         // shouldn't really occur
         Type.any
-    case node.is-symbol and node.is-ident
-      if ident-to-type ownskey node.name
+    case LispyNodeTypeId.Symbol
+      if node.is-ident and ident-to-type ownskey node.name
         ident-to-type[node.name]
       else
-        node.type()
-    case node.is-symbol and node.is-internal and node.is-nothing
-      Type.any
-    case node.is-internal-call(\type-union)
-      for reduce type in node.args, current = Type.none
-        current.union node-to-type(type)
-    case node.is-internal-call(\type-generic)
-      let basetype = node-to-type(node.args[0])
-      let args = for arg in node.args[1 to -1]; node-to-type(arg)
-      if basetype in [Type.array, Type.function]
-        Type.generic basetype.base, ...args
-      else if basetype != Type.any
-        Type.generic basetype, ...args
+        Type.any
+    case LispyNodeTypeId.Call
+      if node.is-internal-call()
+        switch node.func.name
+        case \type-union
+          for reduce type in node.args, current = Type.none
+            current.union node-to-type(type)
+        case \type-generic
+          let basetype = node-to-type(node.args[0])
+          let args = for arg in node.args[1 to -1]; node-to-type(arg)
+          if basetype in [Type.array, Type.function]
+            Type.generic basetype.base, ...args
+          else if basetype != Type.any
+            Type.generic basetype, ...args
+          else
+            Type.any
+        case \type-object
+          let data = {}
+          for i in 0 til node.args.length by 2
+            let key = node.args[i]
+            if key.is-const()
+              data[key.const-value()] := node-to-type(node.args[i + 1])
+          Type.make-object data
+        default
+          Type.any
       else
         Type.any
-    case node.is-internal-call(\type-object)
-      let data = {}
-      for i in 0 til node.args.length by 2
-        let key = node.args[i]
-        if key.is-const()
-          data[key.const-value()] := node-to-type(node.args[i + 1])
-      Type.make-object data
     default
       Type.any
 

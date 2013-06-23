@@ -682,13 +682,13 @@ class MacroContext
         ...(for item in obj
           constify-object position, item, index, scope)
     else if obj instanceof LispyNode
-      switch obj.node-type
-      case \value
+      switch obj.node-type-id
+      case LispyNodeTypeId.Value
         LispyNode.Call obj.index, scope,
           Ident obj.index, scope, \__value
           position or LispyNode.Value obj.index, void
           obj
-      case \symbol
+      case LispyNodeTypeId.Symbol
         if obj.is-ident and obj.name.length > 1 and obj.name.char-code-at(0) == '$'.char-code-at(0)
           LispyNode.Call obj.index, scope,
             Ident obj.index, scope, \__wrap
@@ -697,30 +697,30 @@ class MacroContext
           LispyNode.Call obj.index, scope,
             Ident obj.index, scope, \__symbol
             position or LispyNode.Value obj.index, void
-            ...(switch
-            case obj.is-ident
+            ...(switch obj.symbol-type-id
+            case LispyNodeSymbolTypeId.Ident
               [
                 LispyNode.Value obj.index, \ident
                 LispyNode.Value obj.index, obj.name
               ]
-            case obj.is-tmp
+            case LispyNodeSymbolTypeId.Tmp
               [
                 LispyNode.Value obj.index, \tmp
                 LispyNode.Value obj.index, obj.id
                 LispyNode.Value obj.index, obj.name
               ]
-            case obj.is-internal
+            case LispyNodeSymbolTypeId.Internal
               [
                 LispyNode.Value obj.index, \internal
                 LispyNode.Value obj.index, obj.name
               ]
-            case obj.is-operator
+            case LispyNodeSymbolTypeId.Operator
               [
                 LispyNode.Value obj.index, \operator
                 LispyNode.Value obj.index, obj.operator-type
                 LispyNode.Value obj.index, obj.name
               ])
-      case \call
+      case LispyNodeTypeId.Call
         if obj.is-internal-call(\macro-const)
           LispyNode.Call obj.index, scope,
             Ident obj.index, scope, \__const
@@ -741,7 +741,7 @@ class MacroContext
             constify-object position, obj.func, index, scope
             ...(for arg in obj.args
               constify-object position, arg, index, scope)
-      case \macro-access
+      case LispyNodeTypeId.MacroAccess
         LispyNode.Call obj.index, scope,
           Ident obj.index, scope, \__macro
           position or LispyNode.Value obj.index, void

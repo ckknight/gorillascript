@@ -97,6 +97,7 @@ class Value extends Node
   
   def is-value = true
   def node-type = \value
+  def node-type-id = LispyNodeTypeId.Value
   
   def cacheable = false
   def reduce() -> this
@@ -134,6 +135,8 @@ class Symbol extends Node
   
   def is-symbol = true
   def node-type = \symbol
+  def node-type-id = LispyNodeTypeId.Symbol
+
   def is-noop() -> true
   def is-ident = false
   def is-tmp = false
@@ -155,11 +158,15 @@ class Symbol extends Node
       "Symbol.$(@name)"
     
     def is-internal = true
+    def symbol-type = \internal
+    def symbol-type-id = LispyNodeSymbolTypeId.Internal
+
     def is-goto = false
     def used-as-statement = false
     
     let internal-symbols =
       access: {
+        internal-id: LispyNodeInternalId.Access
         validate-args: #(parent as Node, child as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to access"
@@ -540,6 +547,7 @@ class Symbol extends Node
             cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[1].is-noop(parser)
       }
       array: {
+        internal-id: LispyNodeInternalId.Array
         validate-args(...args as [Node]) ->
         _type() Type.array
         _is-literal: do
@@ -555,6 +563,7 @@ class Symbol extends Node
             cache-get-or-add! cache, call, for every element in call.args; element.is-noop(parser)
       }
       auto-return: {
+        internal-id: LispyNodeInternalId.AutoReturn
         -do-wrap-args
         validate-args(node as Node, ...rest)
           if DEBUG and rest.length > 0
@@ -565,6 +574,7 @@ class Symbol extends Node
           call.args[0].return-type(parser, false).union call.args[0].type(parser)
       }
       block: {
+        internal-id: LispyNodeInternalId.Block
         -do-wrap-args
         _type: do
           let cache = Cache<Call, Type>()
@@ -652,6 +662,7 @@ class Symbol extends Node
             cache-get-or-add! cache, call, for every node in call.args; node.is-noop(parser)
       }
       break: {
+        internal-id: LispyNodeInternalId.Break
         -do-wrap-args
         validate-args(label as Node|null, ...rest)
           if DEBUG and rest.length > 0
@@ -660,12 +671,14 @@ class Symbol extends Node
         +used-as-statement
       }
       comment: {
+        internal-id: LispyNodeInternalId.Comment
         -do-wrap-args
         validate-args(text as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to comment"
       }
       context-call: {
+        internal-id: LispyNodeInternalId.ContextCall
         validate-args(func as Node, context as Node) ->
         _type(call, parser)
           let func = call.args[0]
@@ -676,6 +689,7 @@ class Symbol extends Node
             Type.any
       }
       continue: {
+        internal-id: LispyNodeInternalId.Continue
         -do-wrap-args
         validate-args(label as Node|null, ...rest)
           if DEBUG and rest.length > 0
@@ -684,10 +698,12 @@ class Symbol extends Node
         +used-as-statement
       }
       custom: {
+        internal-id: LispyNodeInternalId.Custom
         -do-wrap-args
         validate-args(name as Value, ...rest as [Node]) ->
       }
       debugger: {
+        internal-id: LispyNodeInternalId.Debugger
         -do-wrap-args
         validate-args(...rest)
           if DEBUG and rest.length > 0
@@ -695,12 +711,14 @@ class Symbol extends Node
         +used-as-statement
       }
       embed-write: {
+        internal-id: LispyNodeInternalId.EmbedWrite
         -do-wrap-args
         validate-args(text as Node, escape as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to embed-write"
       }
       for: {
+        internal-id: LispyNodeInternalId.For
         -do-wrap-args
         validate-args(init as Node, test as Node, step as Node, body as Node, ...rest)
           if DEBUG and rest.length > 0
@@ -711,6 +729,7 @@ class Symbol extends Node
           type.union call.args[3].return-type(parser, false)
       }
       for-in: {
+        internal-id: LispyNodeInternalId.ForIn
         -do-wrap-args
         validate-args(key as Node, object as Node, body as Node, ...rest)
           if DEBUG and rest.length > 0
@@ -721,6 +740,7 @@ class Symbol extends Node
           type.union call.args[2].return-type(parser, false)
       }
       function: {
+        internal-id: LispyNodeInternalId.Function
         -do-wrap-args
         validate-args(params as Node, body as Node, bound as Node, as-type as Node, is-generator as Value)
           if not params.is-internal-call(\array)
@@ -738,6 +758,7 @@ class Symbol extends Node
         _is-noop() true
       }
       if: {
+        internal-id: LispyNodeInternalId.If
         -do-wrap-args
         validate-args(test as Node, when-true as Node, when-false as Node, ...rest)
           if DEBUG and rest.length > 0
@@ -799,6 +820,7 @@ class Symbol extends Node
             cache-get-or-add! cache, call, for every arg in call.args; arg.is-noop(parser)
       }
       label: {
+        internal-id: LispyNodeInternalId.Label
         -do-wrap-args
         validate-args(label as Node, node as Node, ...rest)
           if DEBUG and rest.length > 0
@@ -806,6 +828,7 @@ class Symbol extends Node
         +used-as-statement
       }
       macro-const: {
+        internal-id: LispyNodeInternalId.MacroConst
         -do-wrap-args
         validate-args(name as Value, ...rest)
           if DEBUG and rest.length > 0
@@ -837,6 +860,7 @@ class Symbol extends Node
         */
       }
       new: {
+        internal-id: LispyNodeInternalId.New
         validate-args(ctor as Node) ->
         _type: do
           let PRIMORDIAL_CONSTRUCTOR_TYPES = {
@@ -863,6 +887,7 @@ class Symbol extends Node
             Type.not-undefined-or-null
       }
       nothing: {
+        internal-id: LispyNodeInternalId.Nothing
         type: # Type.undefined
         const-value: # void
         is-const-type: (\undefined ==)
@@ -881,6 +906,7 @@ class Symbol extends Node
             value
       }
       object: {
+        internal-id: LispyNodeInternalId.Object
         validate-args(prototype as Node, ...pairs)!
           if DEBUG
             for pair, i in pairs
@@ -920,12 +946,14 @@ class Symbol extends Node
             cache-get-or-add! cache, call, for every arg in call.args; arg.is-noop(parser)
       }
       param: {
+        internal-id: LispyNodeInternalId.Param
         -do-wrap-args
         validate-args(ident as Node, default-value as Node, is-spread as Value, is-mutable as Value, as-type as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to param"
       }
       return: {
+        internal-id: LispyNodeInternalId.Return
         -do-wrap-args
         validate-args(node as Node, ...rest)
           if DEBUG and rest.length > 0
@@ -936,6 +964,7 @@ class Symbol extends Node
           call.args[0].return-type(parser, false).union call.args[0].type(parser)
       }
       root: {
+        internal-id: LispyNodeInternalId.Root
         -do-wrap-args
         validate-args(file as Value, body as Node, is-embedded as Value, is-generator as Value, ...rest)
           if DEBUG and rest.length > 0
@@ -943,11 +972,13 @@ class Symbol extends Node
         +used-as-statement
       }
       spread: {
+        internal-id: LispyNodeInternalId.Spread
         validate-args(node as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to spread"
       }
       switch: {
+        internal-id: LispyNodeInternalId.Switch
         -do-wrap-args
         validate-args(...args as [Node])
           if DEBUG
@@ -1005,27 +1036,33 @@ class Symbol extends Node
             call
       }
       super: {
+        internal-id: LispyNodeInternalId.Super
         validate-args(child as Node) ->
       }
       syntax-choice: {
+        internal-id: LispyNodeInternalId.SyntaxChoice
         -do-wrap-args
       }
       syntax-many: {
+        internal-id: LispyNodeInternalId.SyntaxMany
         -do-wrap-args
         validate-args(node as Node, multiplier as Value, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to throw"
       }
       syntax-param: {
+        internal-id: LispyNodeInternalId.SyntaxParam
         -do-wrap-args
         validate-args(node as Node, as-type as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to throw"
       }
       syntax-sequence: {
+        internal-id: LispyNodeInternalId.SyntaxSequence
         -do-wrap-args
       }
       throw: {
+        internal-id: LispyNodeInternalId.Throw
         validate-args(node as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to throw"
@@ -1041,6 +1078,7 @@ class Symbol extends Node
             call.args[0]
       }
       tmp-wrapper: {
+        internal-id: LispyNodeInternalId.TmpWrapper
         -do-wrap-args
         _is-statement(call)
           call.args[0].is-statement()
@@ -1080,6 +1118,7 @@ class Symbol extends Node
           call.args[0].is-noop(parser)
       }
       try-catch: {
+        internal-id: LispyNodeInternalId.TryCatch
         -do-wrap-args
         validate-args(try-body as Node, catch-ident as Node, catch-body as Node, ...rest)
           if DEBUG and rest.length > 0
@@ -1108,6 +1147,7 @@ class Symbol extends Node
             cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[2].is-noop(parser)
       }
       try-finally: {
+        internal-id: LispyNodeInternalId.TryFinally
         -do-wrap-args
         validate-args(try-body as Node, finally-body as Node, ...rest)
           if DEBUG and rest.length > 0
@@ -1132,10 +1172,12 @@ class Symbol extends Node
             cache-get-or-add! cache, call, call.args[0].is-noop(parser) and call.args[1].is-noop(parser)
       }
       type-generic: {
+        internal-id: LispyNodeInternalId.TypeGeneric
         -do-wrap-args
         validate-args(node as Node, arg as Node) ->
       }
       type-object: {
+        internal-id: LispyNodeInternalId.TypeObject
         -do-wrap-args
         validate-args(...args)
           if DEBUG
@@ -1148,15 +1190,18 @@ class Symbol extends Node
                 throw TypeError "Expected argument #$i to be a Value, got $(typeof! args[i])"
       }
       type-union: {
+        internal-id: LispyNodeInternalId.TypeUnion
         -do-wrap-args
       }
       var: {
+        internal-id: LispyNodeInternalId.Var
         -do-wrap-args
         validate-args(node as Node, is-mutable as Node|null, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to var"
       }
       yield: {
+        internal-id: LispyNodeInternalId.Yield
         validate-args(node as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to yield"
@@ -1184,6 +1229,8 @@ class Symbol extends Node
     
     def is-ident = true
     def is-ident-or-tmp = true
+    def symbol-type = \ident
+    def symbol-type-id = LispyNodeSymbolTypeId.Ident
     
     def inspect()
       "Symbol.ident($(to-JS-source @name))"
@@ -1298,6 +1345,8 @@ class Symbol extends Node
     
     def is-tmp = true
     def is-ident-or-tmp = true
+    def symbol-type = \tmp
+    def symbol-type-id = LispyNodeSymbolTypeId.Tmp
     
     def inspect()
       "Symbol.tmp($(@id), $(to-JS-source @name))"
@@ -1321,6 +1370,8 @@ class Symbol extends Node
     def is-binary = false
     def is-unary = false
     def is-assign = false
+    def symbol-type = \operator
+    def symbol-type-id = LispyNodeSymbolTypeId.Operator
     
     def equals(other)
       other == this or (other instanceof @constructor)
@@ -1331,6 +1382,7 @@ class Symbol extends Node
       
       def is-binary = true
       def operator-type = \binary
+      def operator-type-id = LispyNodeOperatorTypeId.Binary
       
       def inspect()
         "Symbol.binary[$(to-JS-source @name)]"
@@ -1967,6 +2019,7 @@ class Symbol extends Node
       
       def is-unary = true
       def operator-type = \unary
+      def operator-type-id = LispyNodeOperatorTypeId.Unary
       
       def inspect()
         "Symbol.unary[$(to-JS-source @name)]"
@@ -2179,6 +2232,7 @@ class Symbol extends Node
       
       def is-assign = true
       def operator-type = \assign
+      def operator-type-id = LispyNodeOperatorTypeId.Assign
       
       def inspect()
         "Symbol.assign[$(to-JS-source @name)]"
@@ -2268,7 +2322,8 @@ class Call extends Node
   
   def is-call = true
   def node-type = \call
-
+  def node-type-id = LispyNodeTypeId.Call
+  
   def cacheable = true
   
   def inspect(depth)
@@ -2382,10 +2437,11 @@ class Call extends Node
       false
   
   def is-statement()
-    if is-function! @func._is-statement
-      @func._is-statement(this)
-    else if @func instanceof Symbol
-      @func.is-internal and @func.used-as-statement
+    let func = @func
+    if is-function! func._is-statement
+      func._is-statement(this)
+    else if func instanceof Symbol
+      func.is-internal and func.used-as-statement
     else
       false
   
@@ -2468,6 +2524,7 @@ class MacroAccess extends Node
 
   def is-macro-access = true
   def node-type = \macro-access
+  def node-type-id = LispyNodeTypeId.MacroAccess
 
   def cacheable = true
 
