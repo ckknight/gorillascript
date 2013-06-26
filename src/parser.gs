@@ -2129,7 +2129,7 @@ define Identifier = one-of(
     [\this, InvocationArguments]) |> mutate #(args, parser, index)
     LCall index, parser.scope.peek(),
       LSymbol.ident index, parser.scope.peek(), '$'
-      ...args
+      args
   #(parser, index)
     let name = Name parser, index
     if not name or name.value in get-reserved-idents(parser.options) or parser.has-macro-or-operator name.value or parser.scope.peek().has-const name.value
@@ -2444,8 +2444,7 @@ define DoubleStringArrayLiteral = sequential(
   [\this, DoubleStringLiteralInner]
   DoubleQuote) |> mutate #(parts, parser, index)
   let string-parts = double-string-literal-handler parts, parser, index
-  LInternalCall \array, index, parser.scope.peek(),
-    ...string-parts
+  LInternalCall \array, index, parser.scope.peek(), string-parts
 
 let StringIndent(parser, index)
   let mutable count = 0
@@ -2569,8 +2568,7 @@ define TripleDoubleStringArrayLiteral = sequential(
   TripleDoubleQuote) |> mutate #(parts, parser, index)
   let string-parts = triple-string-handler parts, parser, index
   
-  LInternalCall \array, index, parser.scope.peek(),
-    ...string-parts
+  LInternalCall \array, index, parser.scope.peek(), string-parts
 
 define BackslashStringLiteral = sequential(
   BackslashChar
@@ -2851,8 +2849,7 @@ define ObjectType = sequential(
           throw ParserError "Duplicate object key: $(quote key-value)", parser, key.index
         keys.push key-value
       args.push key, value
-    LInternalCall \type-object, index, parser.scope.peek(),
-      ...args
+    LInternalCall \type-object, index, parser.scope.peek(), args
 
 let FunctionType = sequential(
   one-of(
@@ -2897,9 +2894,10 @@ let NonUnionType = one-of(
     if not args.length
       base
     else
-      LInternalCall \type-generic, index, parser.scope.peek(),
+      LInternalCall \type-generic, index, parser.scope.peek(), [
         base
-        ...args)
+        ...args
+      ])
 
 define Pipe = with-space PipeChar
 redefine TypeReference = separated-list(
@@ -2914,7 +2912,7 @@ redefine TypeReference = separated-list(
     if result.length == 1
       result[0]
     else
-      LInternalCall \type-union, index, parser.scope.peek(), ...result
+      LInternalCall \type-union, index, parser.scope.peek(), result
 
 let MaybeAsType = maybe sequential(
   word "as"
@@ -3008,8 +3006,7 @@ let ArrayParameter = sequential(
   [\this, allow-space-before-access #(parser, index) -> Parameters parser, index]
   EmptyLines
   CloseSquareBracket) |> mutate #(params, parser, index)
-  LInternalCall \array, index, parser.scope.peek(),
-    ...params
+  LInternalCall \array, index, parser.scope.peek(), params
 
 let ParamDualObjectKey = sequential(
   [\key, ObjectKeyColon]
@@ -3048,10 +3045,10 @@ let make-object-node(parser, index, prototype, pairs)
         last-property-pair := null
     else
       last-property-pair := null
-  LInternalCall \object, index, parser.scope.peek(),
+  LInternalCall \object, index, parser.scope.peek(), [
     prototype or LSymbol.nothing index
     ...(for {key, value, property} in pairs
-      LInternalCall \array, key.index, parser.scope.peek(),
+      LInternalCall \array, key.index, parser.scope.peek(), [
         key
         value
         ...(if property
@@ -3060,7 +3057,9 @@ let make-object-node(parser, index, prototype, pairs)
           else
             [property]
         else
-          []))
+          [])
+      ])
+  ]
 
 let ObjectParameter = sequential(
   OpenCurlyBrace
@@ -3186,7 +3185,7 @@ let _FunctionDeclaration = do
       return
 
     let func = LInternalCall \function, index, parser.scope.peek(),
-      LInternalCall \array, index, parser.scope.peek(), ...params.value
+      LInternalCall \array, index, parser.scope.peek(), params.value
       if flags-value.auto-return
         LInternalCall \auto-return, body.value.index, body.value.scope,
           body.value
@@ -3243,8 +3242,7 @@ define ArrayLiteral = prevent-unclosed-object-literal sequential(
       MaybeCommaOrNewline
       )), #-> []))]
   CloseSquareBracket) |> mutate #(items, parser, index)
-  LInternalCall \array, index, parser.scope.peek(),
-    ...items
+  LInternalCall \array, index, parser.scope.peek(), items
 
 define SetLiteral = sequential(
   PercentSign
@@ -3496,7 +3494,7 @@ let CustomOperatorCloseParenthesis = do
     
     let result = mutate-function (LInternalCall \function, index, parser.scope.peek(),
       LInternalCall \array, index, parser.scope.peek(),
-        ...for ident in [left, right]
+        for ident in [left, right]
           LInternalCall \param, index, parser.scope.peek(),
             ident
             LSymbol.nothing index
@@ -3676,8 +3674,7 @@ let UnclosedArrayLiteralElement = sequential(
 define IndentedUnclosedArrayLiteralInner = separated-list(
   UnclosedArrayLiteralElement
   sequential(MaybeComma, SomeEmptyLinesWithCheckIndent)) |> mutate #(items, parser, index)
-  LInternalCall \array, index, parser.scope.peek(),
-    ...items
+  LInternalCall \array, index, parser.scope.peek(), items
 
 define IndentedUnclosedArrayLiteral = sequential(
   UnclosedObjectLiteralsAllowed
@@ -3778,14 +3775,15 @@ let convert-invocation-or-access = do
               parent.do-wrap(parser)
             parent := tmp
           let result = LInternalCall \array, index, parser.scope.peek(),
-            ...(for element, i in child.elements
+            for element, i in child.elements
               LAccess index, parser.scope.peek(),
                 if i == 0 then set-parent else parent
-                element)
+                element
           if tmp-ids.length
-            LInternalCall \tmp-wrapper, index, result.scope,
+            LInternalCall \tmp-wrapper, index, result.scope, [
               result
               ...(for tmp-id in tmp-ids; LValue index, tmp-id)
+            ]
           else
             result
       #(parser, index, mutable head, link, link-index, links)
@@ -3849,9 +3847,10 @@ let convert-invocation-or-access = do
             convert-call-chain(parser, index, bind-access(head, child), link-index + 1, links)
             LSymbol.nothing index
           if tmp-ids.length
-            LInternalCall \tmp-wrapper, index, result.scope,
+            LInternalCall \tmp-wrapper, index, result.scope, [
               result
               ...(for tmp-id in tmp-ids; LValue index, tmp-id)
+            ]
           else
             result
         else
@@ -3886,9 +3885,10 @@ let convert-invocation-or-access = do
               convert-call-chain parser, index, make-access(head), link-index + 1, links
               LSymbol.nothing index
             if tmp-ids.length
-              LInternalCall \tmp-wrapper, index, result.scope,
+              LInternalCall \tmp-wrapper, index, result.scope, [
                 result
                 ...(for tmp-id in tmp-ids; LValue index, tmp-id)
+              ]
             else
               result
           else
@@ -3897,15 +3897,17 @@ let convert-invocation-or-access = do
       let next-chain()
         convert-call-chain parser, index,
           if link.is-context-call
-            LInternalCall \context-call, index, parser.scope.peek(),
+            LInternalCall \context-call, index, parser.scope.peek(), [
               head
               ...link.args
+            ]
           else if link.is-new
-            LInternalCall \new, index, parser.scope.peek(),
+            LInternalCall \new, index, parser.scope.peek(), [
               head
               ...link.args
+            ]
           else
-            LCall index, parser.scope.peek(), head, ...link.args
+            LCall index, parser.scope.peek(), head, link.args
           link-index + 1
           links
       unless link.existential
@@ -3955,9 +3957,10 @@ let convert-invocation-or-access = do
           next-chain()
           LSymbol.nothing index
         if tmp-ids.length
-          LInternalCall \tmp-wrapper, index, result.scope,
+          LInternalCall \tmp-wrapper, index, result.scope, [
             result
             ...(for tmp-id in tmp-ids; LValue index, tmp-id)
+          ]
         else
           result
   link-types.access-index := link-types.access
@@ -4158,9 +4161,10 @@ define SuperInvocation = sequential(
       [\this, allow-space-before-access Expression]
       CloseSquareBracket))]
   [\args, InvocationArguments]) |> mutate #({child, args}, parser, index)
-  LInternalCall \super, index, parser.scope.peek(),
+  LInternalCall \super, index, parser.scope.peek(), [
     child or LSymbol.nothing index,
     ...args
+  ]
 
 define Eval = sequential(
   word "eval"
@@ -4188,7 +4192,7 @@ define InvocationOrAccess = one-of(
       
       Box args.index, LCall index, parser.scope.peek(),
         LSymbol.ident index, parser.scope.peek(), \$
-        ...args.value
+        args.value
     finally
       in-ast.pop()
   BasicInvocationOrAccess
@@ -4413,14 +4417,14 @@ let MacroSyntaxParameterType = allow-space-before-access sequential(
       EmptyLines
       MaybeCommaOrNewline
       CloseParenthesis) |> mutate #(value, parser, index)
-      LInternalCall \syntax-sequence, index, parser.scope.peek(), ...value
+      LInternalCall \syntax-sequence, index, parser.scope.peek(), value
     sequential(
       OpenParenthesis
       EmptyLines
       [\this, #(parser, index) -> MacroSyntaxChoiceParameters parser, index]
       EmptyLines
       CloseParenthesis) |> mutate #(choices, parser, index)
-      LInternalCall \syntax-choice, index, parser.scope.peek(), ...choices)]
+      LInternalCall \syntax-choice, index, parser.scope.peek(), choices)]
   [\multiplier, maybe one-of(
     symbol "?"
     symbol "*"
@@ -4759,7 +4763,7 @@ define EmbeddedLiteralText = sequential(
       NotEmbeddedOpenWrite
       NotEmbeddedOpenLiteral
       EmbeddedOpen))) |> mutate #(nodes, parser, index)
-  LInternalCall \block, index, parser.scope.peek(), ...nodes
+  LInternalCall \block, index, parser.scope.peek(), nodes
 
 define Semicolon = with-space SemicolonChar
 define Semicolons = zero-or-more Semicolon, true
@@ -4817,7 +4821,7 @@ let _Block-mutator(lines, parser, index)
   case 0; LSymbol.nothing index
   case 1; nodes[0]
   default
-    LInternalCall \block, index, parser.scope.peek(), ...nodes
+    LInternalCall \block, index, parser.scope.peek(), nodes
 
 let RootInnerP = promise! #(parser, index)*
   parser.clear-cache()
@@ -4876,10 +4880,11 @@ let EmbeddedRootInnerP = promise! #(parser, index)*
       throw Error "Infinite loop detected"
     current-index := item.index
   parser.clear-cache()
-  return Box current-index, LInternalCall \block, index, parser.scope.peek(),
+  return Box current-index, LInternalCall \block, index, parser.scope.peek(), [
     ...nodes
     LInternalCall \return, index, parser.scope.peek(),
       LSymbol.ident index, parser.scope.peek(), \write
+  ]
 
 let EndNoIndent = sequential(
   EmptyLines
@@ -5285,14 +5290,14 @@ class Parser
     else
       obj
   
-  let make-macro-root(index, params, body)
+  let make-macro-root(index, macro-full-data-param, body)
     let scope = @scope.peek()
     LInternalCall \root, index, scope,
       LValue index, null
       LInternalCall \return, index, scope,
         LInternalCall \function, index, scope,
-          LInternalCall \array, index, scope,
-            params
+          LInternalCall \array, index, scope, [
+            macro-full-data-param
             ...for name in [\__wrap, \__const, \__value, \__symbol, \__call, \__macro]
               LInternalCall \param, index, scope,
                 LSymbol.ident index, scope, name
@@ -5300,6 +5305,7 @@ class Parser
                 LValue index, false // is-spread
                 LValue index, true // is-mutable
                 LSymbol.nothing index // as-type
+          ]
           LInternalCall \auto-return, body.index, body.scope, body
           LValue index, false
           LSymbol.nothing index
@@ -5342,11 +5348,11 @@ class Parser
       ident: #(scope, name)
         LSymbol.ident 0, scope, name
       sequence: #(scope, ...items)
-        LInternalCall \syntax-sequence, 0, scope,
-          ...deserialize-params(items, scope)
+        LInternalCall \syntax-sequence, 0, scope, deserialize-params(items, scope)
       choice: #(scope, ...choices)
         LInternalCall \syntax-choice, 0, scope,
-          ...(for choice in choices; deserialize-param-type(choice, scope))
+          for choice in choices
+            deserialize-param-type(choice, scope)
       const: #(scope, value)
         LValue 0, value
       many: #(scope, multiplier, ...inner)
@@ -5451,7 +5457,7 @@ class Parser
       scope.add macro-name-ident, false, Type.string
       let macro-data-ident = LSymbol.ident index, scope, \macro-data
       scope.add macro-data-ident, false, Type.object
-      body := LInternalCall \block, index, scope,
+      body := LInternalCall \block, index, scope, [
         LInternalCall \var, index, scope, macro-name-ident
         LCall index, scope,
           LSymbol.assign["="] index
@@ -5480,6 +5486,7 @@ class Parser
                   macro-data-ident
                   LValue index, param.args[0].name
         body
+      ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
@@ -5510,7 +5517,7 @@ class Parser
             LValue index, false // is-spread
             LValue index, false // is-mutable
             LSymbol.nothing index // as-type
-          body := LInternalCall \block, index, scope,
+          body := LInternalCall \block, index, scope, [
             ...for param in params
               if param.is-internal-call(\syntax-param)
                 scope.add param.args[0], true, Type.any
@@ -5525,6 +5532,7 @@ class Parser
                       macro-data-ident
                       LValue index, param.args[0].name
             body
+          ]
           let raw-func = make-macro-root@ this, index, func-param, body
           let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
           let compilation = translated.node.to-string(get-compilation-options state-options)
@@ -5559,7 +5567,7 @@ class Parser
       scope.add macro-name-ident, false, Type.string
       let macro-data-ident = LSymbol.ident index, scope, \macro-data
       scope.add macro-data-ident, false, Type.object
-      body := LInternalCall \block, index, scope,
+      body := LInternalCall \block, index, scope, [
         LInternalCall \var, index, scope, macro-name-ident
         LCall index, scope,
           LSymbol.assign["="] index
@@ -5589,6 +5597,7 @@ class Parser
                   macro-data-ident
                   LValue index, i
         body
+      ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
@@ -5618,7 +5627,7 @@ class Parser
         LValue index, false // is-mutable
         LSymbol.nothing index // as-type
       let scope = @scope.peek()
-      body := LInternalCall \block, index, scope,
+      body := LInternalCall \block, index, scope, [
         ...for name in [\left, \op, \right]
           let ident = LSymbol.ident index, scope, name
           scope.add ident, true, Type.any
@@ -5633,6 +5642,7 @@ class Parser
                 macro-data-ident
                 LValue index, name
         body
+      ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
@@ -5672,7 +5682,7 @@ class Parser
         LValue index, false // is-spread
         LValue index, false // is-mutable
         LSymbol.nothing index // as-type
-      body := LInternalCall \block, index, scope,
+      body := LInternalCall \block, index, scope, [
         ...for name in [\left, \op, \right]
           let ident = LSymbol.ident index, scope, name
           scope.add ident, true, Type.any
@@ -5687,6 +5697,7 @@ class Parser
                 macro-data-ident
                 LValue index, name
         body
+      ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
@@ -5715,7 +5726,7 @@ class Parser
         LValue index, false // is-spread
         LValue index, false // is-mutable
         LSymbol.nothing index // as-type
-      body := LInternalCall \block, index, scope,
+      body := LInternalCall \block, index, scope, [
         ...for name in [\op, \node]
           let ident = LSymbol.ident index, scope, name
           scope.add ident, true, Type.any
@@ -5730,6 +5741,7 @@ class Parser
                 macro-data-ident
                 LValue index, name
         body
+      ]
       let raw-func = make-macro-root@ this, index, func-param, body
       let translated = translator(@macro-expand-all(raw-func).reduce(this), @macros, @get-position, return: true)
       let compilation = translated.node.to-string(get-compilation-options state-options)
@@ -5894,11 +5906,13 @@ class Parser
       else
         let scope = parser.push-scope(false)
         let macro-context = MacroContext parser, index, parser.position.peek(), parser.in-generator.peek(), parser.in-evil-ast.peek()
-        if type == \assign-operator and macro-context.is-ident(data.left) and not parser.in-evil-ast.peek()
-          if not macro-context.has-variable(data.left)
-            throw parser.build-error "Trying to assign with $(data.op) to unknown variable '$(macro-context.name data.left)'", data.left
-          else if not macro-context.is-variable-mutable(data.left)
-            throw parser.build-error "Trying to assign with $(data.op) to immutable variable '$(macro-context.name data.left)'", data.left
+        if type == \assign-operator
+          let left = macro-context.macro-expand-1(data.left)
+          if left.is-ident and not parser.in-evil-ast.peek()
+            if not macro-context.has-variable(left)
+              macro-context.error "Trying to assign with $(data.op) to unknown variable '$(left.name)'", left
+            else if not macro-context.is-variable-mutable(left)
+              macro-context.error "Trying to assign with $(data.op) to immutable variable '$(left.name)'", left
         let mutable result = void
         try
           result := handler@ macro-context, remove-noops(data), macro-context@.wrap, macro-context@.get-const, macro-context@.make-lispy-value, macro-context@.make-lispy-symbol, macro-context@.make-lispy-call, macro-context@.macro
@@ -5918,9 +5932,10 @@ class Parser
           result := result.reduce(parser)
           let tmps = macro-context.get-tmps()
           if tmps.unsaved.length
-            result := LInternalCall \tmp-wrapper, index, result.scope,
+            result := LInternalCall \tmp-wrapper, index, result.scope, [
               result
               ...(for tmp-id in tmps.unsaved; LValue index, tmp-id)
+            ]
         parser.pop-scope()
         // TODO: do I need to watch tmps?
         result

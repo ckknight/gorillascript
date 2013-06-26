@@ -100,7 +100,7 @@ macro debugger
 
 macro let
   syntax ident as Identifier, func as FunctionDeclaration
-    ident.is-ident and @is-primordial(ident) and @error ["Cannot declare primordial '", @name(ident), "'"].join(""), ident
+    ident.is-ident and @is-primordial(ident) and @error ["Cannot declare primordial '", ident.name, "'"].join(""), ident
     @add-variable ident, false, #@ @type(func)
     @internal-call \block,
       @internal-call \var, ident
@@ -209,27 +209,8 @@ define helper __xor = #(x, y)
   else
     y or x
 
-define operator binary ~& with precedence: 7, type: \string
-  if @has-type(left, \numeric) and @has-type(right, \numeric)
-    @call(
-      @binary-operator "+"
-      @call(
-        @binary-operator "+"
-        @const ""
-        left)
-      right)
-  else if @is-const(left) and @value(left) == "" and @is-type(right, \string)
-    right
-  else if @is-const(right) and @value(right) == "" and @is-type(left, \string)
-    left
-  else
-    @call(
-      @binary-operator "+"
-      left
-      right)
-
 define operator assign := with type: \right
-  if not @is-complex(left) or (@is-access(left) and not @is-complex(@parent(left)) and not @is-complex(@child(left)))
+  if not left.cacheable or (left.is-internal-call(\access) and not left.args[0].cacheable and not left.args[1].cacheable)
     @mutate-last right,
       #(subnode)
         @call(
@@ -240,6 +221,25 @@ define operator assign := with type: \right
   else
     @call(
       @assign-operator "="
+      left
+      right)
+
+define operator binary ~& with precedence: 7, type: \string
+  if @has-type(left, \numeric) and @has-type(right, \numeric)
+    @call(
+      @binary-operator "+"
+      @call(
+        @binary-operator "+"
+        @const ""
+        left)
+      right)
+  else if @is-type(right, \string) and @macro-expand-1(left).is-const-value("")
+    right
+  else if @is-type(left, \string) and @macro-expand-1(right).is-const-value("")
+    left
+  else
+    @call(
+      @binary-operator "+"
       left
       right)
 
@@ -260,7 +260,7 @@ define syntax DeclarableArray = "[", head as (Declarable|""), tail as (",", this
 define syntax DeclarableObjectSingularPair = value as DeclarableIdent
   value := @macro-expand-1(value)
   {
-    key: @name(value.ident)
+    key: value.ident.name
     value
   }
 define syntax DeclarableObjectDualPair = this as (key as ObjectKey, ":", value as Declarable)
@@ -279,7 +279,7 @@ macro let
       @error "Unknown declarable: " ~& String declarable
     if declarable.type == \ident
       if declarable.ident.is-ident and @is-primordial(declarable.ident)
-        @error "Cannot declare primordial '" ~& @name(declarable.ident) ~& "'", declarable.ident
+        @error "Cannot declare primordial '" ~& declarable.ident.name ~& "'", declarable.ident
       @add-variable declarable.ident, declarable.is-mutable, if declarable.as-type then #@ @to-type(declarable.as-type) else #@ @type(value)
       @internal-call \block,
         @internal-call \var, declarable.ident
@@ -310,7 +310,7 @@ macro let
               handle@ this, elements, inc(i), block
           else
             block.push value
-            @block block
+            @internal-call \block, block
         handle@ this, value.args, 0, []
       else if num-real-elements(0, 0) ~<= 1
         let handle-item(element, index)
@@ -337,7 +337,7 @@ macro let
                 handle@ this, inc(i), block
             else
               block.push value
-              @block block
+              @internal-call \block, block
           handle@ this, 0, [set-value]
     else if declarable.type == \object
       if declarable.pairs.length == 1
@@ -358,7 +358,7 @@ macro let
               handle-pair@ this, i, @macro-expand-1(declarable.pairs[i]), block
             else
               block.push value
-              @block block
+              @internal-call \block, block
           handle@ this, 0, [set-value]
     else
       @error "Unknown declarable: " ~& String declarable ~& " " ~& (String declarable?.constructor?.name)
@@ -806,18 +806,19 @@ define operator binary ownskey with precedence: 6, maximum: 1, invertible: true,
   ASTE __owns@($left, $right)
 
 define operator binary instanceof with precedence: 6, maximum: 1, invertible: true, type: \boolean
-  if @is-ident(right)
-    if @name(right) == \String
+  right := @macro-expand-1 right
+  if right.is-ident
+    if right.name == \String
       return ASTE is-string! $left
-    else if @name(right) == \Number
+    else if right.name == \Number
       return ASTE is-number! $left
-    else if @name(right) == \Boolean
+    else if right.name == \Boolean
       return ASTE is-boolean! $left
-    else if @name(right) == \Function
+    else if right.name == \Function
       return ASTE is-function! $left
-    else if @name(right) == \Array
+    else if right.name == \Array
       return ASTE is-array! $left
-    else if @name(right) == \Object
+    else if right.name == \Object
       return ASTE is-object! $left
   @call @binary-operator(\instanceof), left, right
 
@@ -978,10 +979,10 @@ define operator assign ?=
           $left-value
 
 define operator assign ownsor=
-  if not @is-access(left)
-    @error "Can only use ownsor= on an access"
-  let parent = @parent(left)
-  let child = @child(left)
+  left := @macro-expand-1 left
+  unless left.is-internal-call \access
+    @error "Can only use ownsor= on an access", left
+  let [parent, child] = left.args
   @maybe-cache parent, #(set-parent, parent)
     @maybe-cache child, #(set-child, child)
       if @position == \expression
@@ -1046,8 +1047,9 @@ define operator unary bitnot with type: \number
   ASTE ~bitnot +$node
 
 define operator unary delete with standalone: false
-  if not @is-access(node)
-    @error "Can only use delete on an access"
+  node := @macro-expand-1 node
+  unless node.is-internal-call \access
+    @error "Can only use delete on an access", node
   if @position == \expression
     @maybe-cache-access node, #(set-node, node)
       let tmp = @tmp \ref
@@ -1136,7 +1138,7 @@ macro do
           f i + 1
       f 0
     @call(
-      @func(params, @auto-return(body), true)
+      @func(params, @internal-call(\auto-return, body), true)
       values)
 
 macro with
@@ -1299,7 +1301,8 @@ define operator binary til with maximum: 1, precedence: 4, type: \array
 define operator binary by with maximum: 1, precedence: 3, type: \array
   if not @has-type(right, \number)
     @error "Must provide a number to the 'by' operator", right
-  if @is-const(right) and @value(right) == 0
+  right := @macro-expand-1 right
+  if right.is-const-value(0)
     @error "'by' step must be non-zero", right
   left := @macro-expand-1 left
   if left.is-call
@@ -1482,9 +1485,9 @@ macro for
       let args = array.args
       if array.func.name == \__step
         array := args[0]
-        step := args[1]
-        if @is-const(step)
-          if @value(step) >= 0
+        step := @macro-expand-1 args[1]
+        if step.is-const()
+          if step.const-value() >= 0
             start := ASTE(array) 0
             end := ASTE(array) Infinity
           else
@@ -1944,7 +1947,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
       else if PRIMORDIAL_TYPES ownskey type.name
         AST(value)
           if $value not instanceof $type
-            throw TypeError "Expected $($value-name) to be $($(with-article @name(type))), got $(typeof! $value)"
+            throw TypeError "Expected $($value-name) to be $($(with-article type.name)), got $(typeof! $value)"
       else
         AST(value)
           if $value not instanceof $type
@@ -2673,7 +2676,12 @@ macro async!
     body ?= @noop()
     
     let error = @tmp \e, false
-    params := [@param(error)].concat(params)
+    params := [@internal-call(\param,
+      error
+      @noop()
+      @const false
+      @const false
+      @noop())].concat(params)
     let func = @func params,
       @internal-call \auto-return, if callback == "throw"
         AST(body)
@@ -3878,7 +3886,7 @@ macro promise!
   
   syntax sync as ("(", this as Expression, ")")?, body as GeneratorBody
     let func = @func([]
-      @auto-return(body)
+      @internal-call \auto-return, body
       true
       null
       true)

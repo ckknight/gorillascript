@@ -2335,9 +2335,16 @@ class Symbol extends Node
       }
 
 class Call extends Node
-  def constructor(@index as Number, @scope, @func as Node, ...@args as [Node])
-    if DEBUG and is-function! func.validate-args
-      func.validate-args ...args
+  def constructor(@index as Number, @scope, @func as Node, mutable ...args)
+    while args.length == 1 and is-array! args[0]
+      args := args[0]
+    @args := args
+    if DEBUG
+      for arg, i in args
+        if arg not instanceof Node
+          throw TypeError "Expected args[$i] to be a Node, got $(typeof! arg)"
+      if is-function! func.validate-args
+        func.validate-args ...args
   
   def is-call = true
   def node-type = \call

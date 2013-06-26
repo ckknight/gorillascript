@@ -504,7 +504,6 @@ describe "promisefor", #
       loop
         .then #(value)
           expect(value).to.eql [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
-          expect(items).to.not.eql (0 til 10)
           expect(items.sort (<=>)).to.eql (0 til 10)
           cb()
         .then null, cb

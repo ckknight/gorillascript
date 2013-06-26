@@ -10,11 +10,11 @@ it "has standard macros to give file information", #
 
 macro myif
   syntax test as Logic, body as Body, else-body as ("myelse", this as Body)?
-    @if(test, body, else-body)
+    @internal-call(\if, test, body, else-body or @noop())
 
 macro myfor
   syntax init as Expression, ";", test as Logic, ";", step as Statement, body as Body
-    @for(init, test, step, body)
+    @internal-call(\for, init, test, step, body)
   
   syntax ident as Identifier, "=", start, ",", end, body as Body
     let init = []
@@ -31,10 +31,10 @@ macro myfor
         $body
 
 macro make-array(thing)
-  if not @is-array(thing)
-    throw Error "Expected an array"
+  if not thing or not thing.is-internal-call \array
+    @error "Expected an array", thing
   let parts = []
-  let elements = @elements(thing)
+  let elements = thing.args
   let len = elements.length
   myfor i = 0, len
     let item = elements[i]
