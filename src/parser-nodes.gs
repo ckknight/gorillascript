@@ -635,14 +635,15 @@ class Symbol extends Node
                     changed := true
                   body.splice i, 1
                 else if current.is-assign-call() and previous.args[0].equals(current.args[1])
-                  // convert (a = b, c op= a) to (c op= a = b)
-                  if not changed
-                    body := body.slice()
-                    changed := true
-                  body.splice i - 1, 2, Call current.index, current.scope,
-                    current.func
-                    current.args[0]
-                    previous
+                  unless current.args[0].is-internal-call(\access) and current.args[0].args[0].equals(previous.args[0])
+                    // convert (a = b, c op= a) to (c op= a = b)
+                    if not changed
+                      body := body.slice()
+                      changed := true
+                    body.splice i - 1, 2, Call current.index, current.scope,
+                      current.func
+                      current.args[0]
+                      previous
             body
           #(call, parser)
             let mutable changed = false

@@ -948,3 +948,8 @@ describe "single-line objects", #
     expect(obj.x).to.equal "hello"
     obj.x := "there"
     expect(obj.x).to.equal "there"
+
+  it "should be able to set a property on itself referencing itself", #
+    let obj = {}
+    obj.obj := obj
+    expect(obj.obj).to.equal obj
