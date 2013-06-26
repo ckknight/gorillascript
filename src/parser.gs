@@ -4533,7 +4533,9 @@ let _DefineMacro = sequential(
 
 let DefineSyntax = do
   let top-rule = sequential(
-    word "define"
+    one-of(
+      word "define"
+      word "macro")
     word "syntax"
     SHORT_CIRCUIT
     [\name, Identifier]
@@ -4548,7 +4550,9 @@ let DefineSyntax = do
     Box (if body then body.index else top.index), LSymbol.nothing index
 
 let DefineHelper = sequential(
-  word "define"
+  one-of(
+    word "define"
+    word "macro")
   word "helper"
   SHORT_CIRCUIT
   [\name, Identifier]
@@ -4562,7 +4566,9 @@ let DefineHelper = sequential(
 
 let DefineOperator = do
   let main-rule = sequential(
-    word "define"
+    one-of(
+      word "define"
+      word "macro")
     word "operator"
     SHORT_CIRCUIT
     [\type, one-of(
@@ -4596,7 +4602,7 @@ let DefineOperator = do
     parser.pop-scope()
     Box body.index, LSymbol.nothing index
 
-define DefineMacro = one-of(_DefineMacro, DefineSyntax, DefineHelper, DefineOperator)
+define DefineMacro = one-of(DefineSyntax, DefineHelper, DefineOperator, _DefineMacro)
 
 let DefineConstLiteral = sequential(
   word "const"

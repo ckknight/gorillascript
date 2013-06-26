@@ -24,19 +24,19 @@ macro do
 // 12: ^
 // 13: <<, >>
 
-define operator binary and with precedence: 1
+macro operator binary and with precedence: 1
   @call(
     @binary-operator "&&"
     left
     right)
 
-define operator binary or with precedence: 1
+macro operator binary or with precedence: 1
   @call(
     @binary-operator "||"
     left
     right)
 
-define operator unary not with type: \boolean
+macro operator unary not with type: \boolean
   @mutate-last node,
     #(subnode)
       @call(
@@ -44,7 +44,7 @@ define operator unary not with type: \boolean
         subnode)
     true
 
-define operator unary typeof with type: \string
+macro operator unary typeof with type: \string
   @mutate-last node,
     #(subnode)
       @call(
@@ -52,44 +52,44 @@ define operator unary typeof with type: \string
         subnode)
     true
 
-define operator binary == with precedence: 2, maximum: 1, type: \boolean
+macro operator binary == with precedence: 2, maximum: 1, type: \boolean
   @call(
     @binary-operator "==="
     left
     right)
 
-define operator binary != with precedence: 2, maximum: 1, type: \boolean
+macro operator binary != with precedence: 2, maximum: 1, type: \boolean
   ASTE not ($left == $right)
 
-define operator binary ~= with precedence: 2, maximum: 1, type: \boolean
+macro operator binary ~= with precedence: 2, maximum: 1, type: \boolean
   @call(
     @binary-operator "=="
     left
     right)
 
-define operator binary !~= with precedence: 2, maximum: 1, type: \boolean
+macro operator binary !~= with precedence: 2, maximum: 1, type: \boolean
   ASTE not ($left ~= $right)
 
-define operator binary ~<, ~<= with precedence: 2, maximum: 1, type: \boolean
+macro operator binary ~<, ~<= with precedence: 2, maximum: 1, type: \boolean
   @call(
     @binary-operator op.substring(1)
     left
     right)
 
-define operator unary throw with type: \none
+macro operator unary throw with type: \none
   @mutate-last node,
     #(subnode)
       @internal-call \throw, subnode
     true
 
-define helper __throw = (throw)
+macro helper __throw = (throw)
 
-define operator unary post-inc! with type: \number
+macro operator unary post-inc! with type: \number
   @call(
     @unary-operator "++post"
     node)
 
-define operator unary post-dec! with type: \number
+macro operator unary post-dec! with type: \number
   @call(
     @unary-operator "--post"
     node)
@@ -144,7 +144,7 @@ macro if, unless
         dec(else-ifs.length)
         else-body or @noop()
 
-define operator binary ~>, ~>= with precedence: 2, maximum: 1, type: \boolean
+macro operator binary ~>, ~>= with precedence: 2, maximum: 1, type: \boolean
   if op == "~>"
     ASTE not ($left ~<= $right)
   else
@@ -162,54 +162,54 @@ macro break
       @error "break can only be used in a statement position"
     @internal-call \break, if label then [label] else []
 
-define operator unary ? with postfix: true, type: \boolean, label: \existential
+macro operator unary ? with postfix: true, type: \boolean, label: \existential
   if node and node.is-ident-or-tmp and not @has-variable(node)
     ASTE typeof $node != \undefined and $node != null
   else
     ASTE $node !~= null
 
-define operator unary is-void!, is-undefined! with type: \boolean
+macro operator unary is-void!, is-undefined! with type: \boolean
   if node and node.is-ident-or-tmp and not @has-variable(node)
     ASTE typeof $node == \undefined
   else
     ASTE $node == void
 
-define operator unary is-null! with type: \boolean
+macro operator unary is-null! with type: \boolean
   if node and node.is-ident-or-tmp and not @has-variable(node)
     ASTE typeof $node != \undefined and $node == null
   else
     ASTE $node == null
 
-define operator unary is-string! with type: \boolean
+macro operator unary is-string! with type: \boolean
   ASTE typeof $node == \string
 
-define operator unary is-number! with type: \boolean
+macro operator unary is-number! with type: \boolean
   ASTE typeof $node == \number
 
-define operator unary is-boolean! with type: \boolean
+macro operator unary is-boolean! with type: \boolean
   ASTE typeof $node == \boolean
 
-define operator unary is-function! with type: \boolean
+macro operator unary is-function! with type: \boolean
   ASTE typeof $node == \function
 
-define operator unary is-array! with type: \boolean
+macro operator unary is-array! with type: \boolean
   if node and node.is-ident-or-tmp and not @has-variable(node)
     ASTE typeof $node != \undefined and __is-array($node)
   else
     ASTE __is-array($node)
 
-define operator unary is-object! with type: \boolean
+macro operator unary is-object! with type: \boolean
   ASTE typeof $node == \object and $node != null
 
-define helper GLOBAL = if not is-void! window then window else if not is-void! global then global else this
+macro helper GLOBAL = if not is-void! window then window else if not is-void! global then global else this
 
-define helper __xor = #(x, y)
+macro helper __xor = #(x, y)
   if x
     not y and x
   else
     y or x
 
-define operator assign := with type: \right
+macro operator assign := with type: \right
   if not left.cacheable or (left.is-internal-call(\access) and not left.args[0].cacheable and not left.args[1].cacheable)
     @mutate-last right,
       #(subnode)
@@ -224,7 +224,7 @@ define operator assign := with type: \right
       left
       right)
 
-define operator binary ~& with precedence: 7, type: \string
+macro operator binary ~& with precedence: 7, type: \string
   if @has-type(left, \numeric) and @has-type(right, \numeric)
     @call(
       @binary-operator "+"
@@ -243,7 +243,7 @@ define operator binary ~& with precedence: 7, type: \string
       left
       right)
 
-define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier, as-type as ("as", this as Type)?
+macro syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier, as-type as ("as", this as Type)?
   ident := @macro-expand-1 ident
   if @is-node(ident)
     type: \ident
@@ -253,23 +253,23 @@ define syntax DeclarableIdent = is-mutable as "mutable"?, ident as Identifier, a
   else
     ident
 
-define syntax DeclarableArray = "[", head as (Declarable|""), tail as (",", this as (Declarable|""))*, "]"
+macro syntax DeclarableArray = "[", head as (Declarable|""), tail as (",", this as (Declarable|""))*, "]"
   type: \array
   elements: [head].concat(tail)
 
-define syntax DeclarableObjectSingularPair = value as DeclarableIdent
+macro syntax DeclarableObjectSingularPair = value as DeclarableIdent
   value := @macro-expand-1(value)
   {
     key: value.ident.name
     value
   }
-define syntax DeclarableObjectDualPair = this as (key as ObjectKey, ":", value as Declarable)
-define syntax DeclarableObjectPair = this as (DeclarableObjectDualPair | DeclarableObjectSingularPair)
-define syntax DeclarableObject = "{", head as DeclarableObjectPair, tail as (",", this as DeclarableObjectPair)*, "}"
+macro syntax DeclarableObjectDualPair = this as (key as ObjectKey, ":", value as Declarable)
+macro syntax DeclarableObjectPair = this as (DeclarableObjectDualPair | DeclarableObjectSingularPair)
+macro syntax DeclarableObject = "{", head as DeclarableObjectPair, tail as (",", this as DeclarableObjectPair)*, "}"
   type: \object
   pairs: [head].concat(tail)
 
-define syntax Declarable = this as (DeclarableArray | DeclarableObject | DeclarableIdent)
+macro syntax Declarable = this as (DeclarableArray | DeclarableObject | DeclarableIdent)
 
 macro let
   syntax declarable as Declarable, "=", value as ExpressionOrAssignmentOrBody
@@ -421,16 +421,16 @@ macro returnunless
                 return $subnode
       true
 
-define operator assign and=
+macro operator assign and=
   @maybe-cache-access left, #(set-left, left)
     ASTE $set-left and ($left := $right)
 
-define operator assign or=
+macro operator assign or=
   @maybe-cache-access left, #(set-left, left)
     ASTE $set-left or ($left := $right)
 
 // let's define the unstrict operators first
-define operator binary ~*, ~/, ~%, ~\ with precedence: 11, type: \number
+macro operator binary ~*, ~/, ~%, ~\ with precedence: 11, type: \number
   if op == "~\\"
     ASTE Math.floor $(@call @binary-operator("/"), left, right)
   else if op == "~*"
@@ -443,7 +443,7 @@ define operator binary ~*, ~/, ~%, ~\ with precedence: 11, type: \number
 const Infinity = 1 ~/ 0
 const NaN = 0 ~/ 0
 
-define operator assign ~*=, ~/=, ~%= with type: \number
+macro operator assign ~*=, ~/=, ~%= with type: \number
   left := @macro-expand-1 left
   if left.is-ident-or-tmp
     @mutate-last right,
@@ -463,11 +463,11 @@ define operator assign ~*=, ~/=, ~%= with type: \number
     else
       @call @assign-operator("%="), left, right
 
-define operator assign ~\= with type: \number
+macro operator assign ~\= with type: \number
   @maybe-cache-access left, #(set-left, left)
     ASTE $set-left := $left ~\ $right
 
-define operator unary ~+, ~- with type: \number
+macro operator unary ~+, ~- with type: \number
   node := @macro-expand-1 node
   if node.is-value
     let mutable value = Number(node.value)
@@ -483,7 +483,7 @@ define operator unary ~+, ~- with type: \number
           subnode)
       true
 
-define operator binary ~+, ~- with precedence: 10, type: \number
+macro operator binary ~+, ~- with precedence: 10, type: \number
   if op == "~+"
     if not @is-type(left, \numeric) and not @is-type(right, \numeric)
       @call(
@@ -505,7 +505,7 @@ define operator binary ~+, ~- with precedence: 10, type: \number
       left
       right)
 
-define operator binary ~^ with precedence: 12, right-to-left: true, type: \number
+macro operator binary ~^ with precedence: 12, right-to-left: true, type: \number
   right := @macro-expand-1 right
   if right.is-value
     let value = Number(right.value)
@@ -535,11 +535,11 @@ define operator binary ~^ with precedence: 12, right-to-left: true, type: \numbe
         ASTE 1 ~/ ($set-left ~* $left ~* $left)
   ASTE Math.pow $left, $right
 
-define operator assign ~^= with type: \number
+macro operator assign ~^= with type: \number
   @maybe-cache-access left, #(set-left, left)
     ASTE $set-left := $left ~^ $right
 
-define operator assign ~+= with type: \number
+macro operator assign ~+= with type: \number
   right := @macro-expand-1 right
   if right.is-value
     let value = Number(right.value)
@@ -567,7 +567,7 @@ define operator assign ~+= with type: \number
     else
       subtractAssign right
 
-define operator assign ~-= with type: \number
+macro operator assign ~-= with type: \number
   right := @macro-expand-1 right
   if right.is-value
     let value = Number(right.value)
@@ -584,16 +584,16 @@ define operator assign ~-= with type: \number
   else
     subtractAssign right
 
-define operator binary ~bitlshift with precedence: 9, maximum: 1, type: \number
+macro operator binary ~bitlshift with precedence: 9, maximum: 1, type: \number
   @call @binary-operator("<<"), left, right
 
-define operator binary ~bitrshift with precedence: 9, maximum: 1, type: \number
+macro operator binary ~bitrshift with precedence: 9, maximum: 1, type: \number
   @call @binary-operator(">>"), left, right
 
-define operator binary ~biturshift with precedence: 9, maximum: 1, type: \number
+macro operator binary ~biturshift with precedence: 9, maximum: 1, type: \number
   @call @binary-operator(">>>"), left, right
 
-define operator assign ~bitlshift= with type: \number
+macro operator assign ~bitlshift= with type: \number
   left := @macro-expand-1 left
   let assign(right)@
     @call @assign-operator("<<="), left, right
@@ -602,7 +602,7 @@ define operator assign ~bitlshift= with type: \number
   else
     assign right
 
-define operator assign ~bitrshift= with type: \number
+macro operator assign ~bitrshift= with type: \number
   left := @macro-expand-1 left
   let assign(right)@
     @call @assign-operator(">>="), left, right
@@ -611,7 +611,7 @@ define operator assign ~bitrshift= with type: \number
   else
     assign right
 
-define operator assign ~biturshift= with type: \number
+macro operator assign ~biturshift= with type: \number
   left := @macro-expand-1 left
   let assign(right)@
     @call @assign-operator(">>>="), left, right
@@ -620,7 +620,7 @@ define operator assign ~biturshift= with type: \number
   else
     assign right
 
-define operator assign ~&= with type: \string
+macro operator assign ~&= with type: \string
   left := @macro-expand-1 left
   let left-is-numeric = @has-type(left, \numeric)
   let assign(right)@
@@ -633,7 +633,7 @@ define operator assign ~&= with type: \string
   else
     assign right
 
-define helper __typeof = do
+macro helper __typeof = do
   let _to-string = Object.prototype.to-string
   #(o) as String
     if is-void! o
@@ -643,14 +643,14 @@ define helper __typeof = do
     else
       (o.constructor and o.constructor.name) or _to-string@(o).slice(8, ~-1)
 
-define operator unary typeof! with type: \string
+macro operator unary typeof! with type: \string
   node := @macro-expand-1 node
   if node.is-ident-or-tmp and not @has-variable(node)
     ASTE if typeof $node == \undefined then "Undefined" else __typeof($node)
   else
     @mutate-last node, (#(subnode) -> ASTE __typeof($subnode)), true
 
-define helper __first = #(x) -> x
+macro helper __first = #(x) -> x
 
 macro first!(head)
   // FIXME: this is hackish, macro should be (head, ...tail)
@@ -677,19 +677,19 @@ macro last!()
       $start
       $finish
 
-define helper __num = #(num) as Number
+macro helper __num = #(num) as Number
   if not is-number! num
     throw TypeError("Expected a number, got " ~& typeof! num)
   else
     num
 
-define helper __str = #(str) as String
+macro helper __str = #(str) as String
   if not is-string! str
     throw TypeError("Expected a string, got " ~& typeof! str)
   else
     str
 
-define helper __strnum = #(strnum) as String
+macro helper __strnum = #(strnum) as String
   let type = typeof strnum
   if type == \string
     strnum
@@ -700,7 +700,7 @@ define helper __strnum = #(strnum) as String
 
 // strict operators, should have same precedence as their respective unstrict versions
 
-define operator unary + with type: \number
+macro operator unary + with type: \number
   @mutate-last node,
     #(subnode)
       if @is-type subnode, \number
@@ -711,7 +711,7 @@ define operator unary + with type: \number
         ASTE __num($subnode)
     true
 
-define operator unary - with type: \number
+macro operator unary - with type: \number
   @mutate-last node,
     #(mutable subnode)
       subnode := @macro-expand-1 subnode
@@ -722,17 +722,17 @@ define operator unary - with type: \number
       else
         ASTE ~-(+$subnode)
 
-define operator binary ^ with precedence: 12, right-to-left: true, type: \number
+macro operator binary ^ with precedence: 12, right-to-left: true, type: \number
   if @get-const-value("DISABLE_TYPE_CHECKING", false)
     ASTE $left ~^ $right
   else
     ASTE +$left ~^ +$right
 
-define operator assign ^= with type: \number
+macro operator assign ^= with type: \number
   @maybe-cache-access left, #(set-left, left)
     ASTE $set-left := $left ^ $right
 
-define operator binary *, /, %, \ with precedence: 11, type: \number
+macro operator binary *, /, %, \ with precedence: 11, type: \number
   if op == "*"
     ASTE +$left ~* +$right
   else if op == "/"
@@ -742,29 +742,29 @@ define operator binary *, /, %, \ with precedence: 11, type: \number
   else
     ASTE +$left ~\ +$right
 
-define operator unary % with postfix: true, type: \number
+macro operator unary % with postfix: true, type: \number
   ASTE $node / 100
 
-define operator binary +, - with precedence: 10, type: \number
+macro operator binary +, - with precedence: 10, type: \number
   if op == "+"
     ASTE +$left ~+ +$right
   else
     ASTE +$left ~- +$right
 
-define operator binary bitlshift with precedence: 9, maximum: 1, type: \number
+macro operator binary bitlshift with precedence: 9, maximum: 1, type: \number
   ASTE +$left ~bitlshift +$right
 
-define operator binary bitrshift with precedence: 9, maximum: 1, type: \number
+macro operator binary bitrshift with precedence: 9, maximum: 1, type: \number
   ASTE +$left ~bitrshift +$right
 
-define operator binary biturshift with precedence: 9, maximum: 1, type: \number
+macro operator binary biturshift with precedence: 9, maximum: 1, type: \number
   ASTE +$left ~biturshift +$right
 
-define operator assign \= with type: \number
+macro operator assign \= with type: \number
   @maybe-cache-access left, #(set-left, left)
     ASTE $set-left := $left \ $right
 
-define operator binary & with precedence: 7, type: \string, label: \string-concat
+macro operator binary & with precedence: 7, type: \string, label: \string-concat
   if not @get-const-value("DISABLE_TYPE_CHECKING", false)
     if not @is-type left, \string-or-number
       left := if not @has-type left, \number
@@ -778,7 +778,7 @@ define operator binary & with precedence: 7, type: \string, label: \string-conca
         ASTE(right) __strnum $right
   ASTE $left ~& $right
 
-define operator assign &= with type: \string
+macro operator assign &= with type: \string
   if @get-const-value("DISABLE_TYPE_CHECKING", false)
     ASTE $left ~&= $right
   else if @is-type left, \string
@@ -787,7 +787,7 @@ define operator assign &= with type: \string
     @maybe-cache-access left, #(set-left, left)
       ASTE $set-left := $left & $right
 
-define operator binary in with precedence: 6, maximum: 1, invertible: true, type: \boolean
+macro operator binary in with precedence: 6, maximum: 1, invertible: true, type: \boolean
   right := @macro-expand-1 right
   if right.is-internal-call \array
     let elements = right.args
@@ -808,15 +808,15 @@ define operator binary in with precedence: 6, maximum: 1, invertible: true, type
   else
     ASTE __in($left, $right)
 
-define operator binary haskey with precedence: 6, maximum: 1, invertible: true, type: \boolean
+macro operator binary haskey with precedence: 6, maximum: 1, invertible: true, type: \boolean
   @call @binary-operator(\in), right, left
 
-define helper __owns = Object.prototype.has-own-property
+macro helper __owns = Object.prototype.has-own-property
 
-define operator binary ownskey with precedence: 6, maximum: 1, invertible: true, type: \boolean, label: \ownership
+macro operator binary ownskey with precedence: 6, maximum: 1, invertible: true, type: \boolean, label: \ownership
   ASTE __owns@($left, $right)
 
-define operator binary instanceof with precedence: 6, maximum: 1, invertible: true, type: \boolean
+macro operator binary instanceof with precedence: 6, maximum: 1, invertible: true, type: \boolean
   right := @macro-expand-1 right
   if right.is-ident
     if right.name == \String
@@ -833,7 +833,7 @@ define operator binary instanceof with precedence: 6, maximum: 1, invertible: tr
       return ASTE is-object! $left
   @call @binary-operator(\instanceof), left, right
 
-define helper __cmp = #(left, right) as Number
+macro helper __cmp = #(left, right) as Number
   if left == right
     0
   else
@@ -847,16 +847,16 @@ define helper __cmp = #(left, right) as Number
     else
       1
 
-define operator binary <=> with precedence: 5, maximum: 1, type: \number
+macro operator binary <=> with precedence: 5, maximum: 1, type: \number
   ASTE __cmp($left, $right)
 
-define operator binary %% with precedence: 2, maximum: 1, invertible: true, type: \boolean
+macro operator binary %% with precedence: 2, maximum: 1, invertible: true, type: \boolean
   ASTE $left % $right == 0
 
-define operator binary ~%% with precedence: 2, maximum: 1, invertible: true, type: \boolean
+macro operator binary ~%% with precedence: 2, maximum: 1, invertible: true, type: \boolean
   ASTE $left ~% $right == 0
 
-define helper __int = #(num) as Number
+macro helper __int = #(num) as Number
   if not is-number! num
     throw TypeError("Expected a number, got " ~& typeof! num)
   else if num not ~%% 1
@@ -864,13 +864,13 @@ define helper __int = #(num) as Number
   else
     num
 
-define helper __nonzero = #(num)
+macro helper __nonzero = #(num)
   if num == 0
     throw RangeError("Expected non-zero, got " ~& num)
   else
     num
 
-define helper __lt = #(x, y) as Boolean
+macro helper __lt = #(x, y) as Boolean
   let type = typeof x
   if type not in [\number, \string]
     throw TypeError("Cannot compare a non-number/string: " ~& type)
@@ -879,7 +879,7 @@ define helper __lt = #(x, y) as Boolean
   else
     x ~< y
 
-define helper __lte = #(x, y) as Boolean
+macro helper __lte = #(x, y) as Boolean
   let type = typeof x
   if type not in [\number, \string]
     throw TypeError("Cannot compare a non-number/string: " ~& type)
@@ -888,7 +888,7 @@ define helper __lte = #(x, y) as Boolean
   else
     x ~<= y
 
-define operator binary <, <= with precedence: 2, maximum: 1, type: \boolean
+macro operator binary <, <= with precedence: 2, maximum: 1, type: \boolean
   if @get-const-value("DISABLE_TYPE_CHECKING", false)
     if op == "<"
       ASTE $left ~< $right
@@ -917,68 +917,68 @@ define operator binary <, <= with precedence: 2, maximum: 1, type: \boolean
     else
       ASTE __lte($left, $right)
 
-define operator binary >, >= with precedence: 2, maximum: 1, type: \boolean
+macro operator binary >, >= with precedence: 2, maximum: 1, type: \boolean
   if op == ">"
     ASTE not ($left <= $right)
   else
     ASTE not ($left < $right)
 
-define operator binary ~min with precedence: 8
+macro operator binary ~min with precedence: 8
   @maybe-cache left, #(set-left, left)
     @maybe-cache right, #(set-right, right)
       ASTE if $set-left ~< $set-right then $left else $right
 
-define operator binary ~max with precedence: 8
+macro operator binary ~max with precedence: 8
   @maybe-cache left, #(set-left, left)
     @maybe-cache right, #(set-right, right)
       ASTE if $set-left ~> $set-right then $left else $right
 
-define operator binary min with precedence: 8
+macro operator binary min with precedence: 8
   @maybe-cache left, #(set-left, left)
     @maybe-cache right, #(set-right, right)
       ASTE if $set-left < $set-right then $left else $right
 
-define operator binary max with precedence: 8
+macro operator binary max with precedence: 8
   @maybe-cache left, #(set-left, left)
     @maybe-cache right, #(set-right, right)
       ASTE if $set-left > $set-right then $left else $right
 
-define operator binary xor with precedence: 1
+macro operator binary xor with precedence: 1
   ASTE __xor($left, $right)
 
-define operator binary ? with precedence: 1
+macro operator binary ? with precedence: 1
   @maybe-cache left, #(set-left, left)
     ASTE if $set-left? then $left else $right
 
-define operator assign ~min=
+macro operator assign ~min=
   @maybe-cache-access left, #(set-left, left)
     @maybe-cache set-left, #(set-left, left-value)
       @maybe-cache right, #(set-right, right)
         ASTE if $set-left ~> $set-right then ($left := $right) else $left-value
 
-define operator assign ~max=
+macro operator assign ~max=
   @maybe-cache-access left, #(set-left, left)
     @maybe-cache set-left, #(set-left, left-value)
       @maybe-cache right, #(set-right, right)
         ASTE if $set-left ~< $set-right then ($left := $right) else $left-value
 
-define operator assign min=
+macro operator assign min=
   @maybe-cache-access left, #(set-left, left)
     @maybe-cache set-left, #(set-left, left-value)
       @maybe-cache right, #(set-right, right)
         ASTE if $set-left > $set-right then ($left := $right) else $left-value
 
-define operator assign max=
+macro operator assign max=
   @maybe-cache-access left, #(set-left, left)
     @maybe-cache set-left, #(set-left, left-value)
       @maybe-cache right, #(set-right, right)
         ASTE if $set-left < $set-right then ($left := $right) else $left-value
 
-define operator assign xor=
+macro operator assign xor=
   @maybe-cache-access left, #(set-left, left)
     ASTE $set-left := $left xor $right
 
-define operator assign ?=
+macro operator assign ?=
   @maybe-cache-access left, #(set-left, left)
     @maybe-cache set-left, #(set-left, left-value)
       if @position == \expression
@@ -989,7 +989,7 @@ define operator assign ?=
         else
           $left-value
 
-define operator assign ownsor=
+macro operator assign ownsor=
   left := @macro-expand-1 left
   unless left.is-internal-call \access
     @error "Can only use ownsor= on an access", left
@@ -1004,16 +1004,16 @@ define operator assign ownsor=
         else
           $parent[$child]
 
-define operator binary ~bitand with precedence: 1, type: \number
+macro operator binary ~bitand with precedence: 1, type: \number
   @call @binary-operator("&"), left, right
 
-define operator binary ~bitor with precedence: 1, type: \number
+macro operator binary ~bitor with precedence: 1, type: \number
   @call @binary-operator("|"), left, right
 
-define operator binary ~bitxor with precedence: 1, type: \number
+macro operator binary ~bitxor with precedence: 1, type: \number
   @call @binary-operator("^"), left, right
 
-define operator assign ~bitand= with type: \number
+macro operator assign ~bitand= with type: \number
   left := @macro-expand-1 left
   let assign(right)@
     @call @assign-operator("&="), left, right
@@ -1022,7 +1022,7 @@ define operator assign ~bitand= with type: \number
   else
     assign right
 
-define operator assign ~bitor= with type: \number
+macro operator assign ~bitor= with type: \number
   left := @macro-expand-1 left
   let assign(right)@
     @call @assign-operator("|="), left, right
@@ -1031,7 +1031,7 @@ define operator assign ~bitor= with type: \number
   else
     assign right
 
-define operator assign ~bitxor= with type: \number
+macro operator assign ~bitxor= with type: \number
   left := @macro-expand-1 left
   let assign(right)@
     @call @assign-operator("^="), left, right
@@ -1040,24 +1040,24 @@ define operator assign ~bitxor= with type: \number
   else
     assign right
 
-define operator binary bitand with precedence: 1, type: \number
+macro operator binary bitand with precedence: 1, type: \number
   ASTE +$left ~bitand +$right
 
-define operator binary bitor with precedence: 1, type: \number
+macro operator binary bitor with precedence: 1, type: \number
   ASTE +$left ~bitor +$right
 
-define operator binary bitxor with precedence: 1, type: \number
+macro operator binary bitxor with precedence: 1, type: \number
   ASTE +$left ~bitxor +$right
 
-define operator unary ~bitnot with type: \number
+macro operator unary ~bitnot with type: \number
   @mutate-last node,
     #(subnode) -> @call @unary-operator("~"), subnode
     true
 
-define operator unary bitnot with type: \number
+macro operator unary bitnot with type: \number
   ASTE ~bitnot +$node
 
-define operator unary delete with standalone: false
+macro operator unary delete with standalone: false
   node := @macro-expand-1 node
   unless node.is-internal-call \access
     @error "Can only use delete on an access", node
@@ -1072,11 +1072,11 @@ define operator unary delete with standalone: false
   else
     @call @unary-operator(\delete), node
 
-define operator unary throw? with type: \undefined
+macro operator unary throw? with type: \undefined
   @maybe-cache node, #(set-node, node)
     ASTE if $set-node? then throw $node
 
-define operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, bitand=, bitor=, bitxor= with type: \number
+macro operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, bitand=, bitor=, bitxor= with type: \number
   if @get-const-value("DISABLE_TYPE_CHECKING", false) or @is-type left, \number
     if op == "*="
       ASTE $left ~*= +$right
@@ -1156,15 +1156,15 @@ macro with
   syntax node as Expression, body as (Body | (";", this as Statement))
     ASTE (# $body)@($node)
 
-define helper __slice = Array.prototype.slice
+macro helper __slice = Array.prototype.slice
 
-define helper __is-array = if is-function! Array.is-array
+macro helper __is-array = if is-function! Array.is-array
   Array.is-array
 else
   do _to-string = Object.prototype.to-string
     #(x) as Boolean -> _to-string@(x) == "[object Array]"
 
-define helper __to-array = #(x) as []
+macro helper __to-array = #(x) as []
   if not x?
     throw TypeError "Expected an object, got " ~& typeof! x
   else if is-array! x
@@ -1176,7 +1176,7 @@ define helper __to-array = #(x) as []
   else
     throw TypeError "Expected an object with a length property, got " ~& typeof! x
 
-define helper __create = if is-function! Object.create
+macro helper __create = if is-function! Object.create
   Object.create
 else
   #(x)
@@ -1303,13 +1303,13 @@ macro while, until
       for reduce ; $test; $step, $current = $current-start
         $body
 
-define operator binary to with maximum: 1, precedence: 4, type: \array
+macro operator binary to with maximum: 1, precedence: 4, type: \array
   ASTE __range($left, $right, 1, true)
 
-define operator binary til with maximum: 1, precedence: 4, type: \array
+macro operator binary til with maximum: 1, precedence: 4, type: \array
   ASTE __range($left, $right, 1, false)
 
-define operator binary by with maximum: 1, precedence: 3, type: \array
+macro operator binary by with maximum: 1, precedence: 3, type: \array
   if not @has-type(right, \number)
     @error "Must provide a number to the 'by' operator", right
   right := @macro-expand-1 right
@@ -1323,7 +1323,7 @@ define operator binary by with maximum: 1, precedence: 3, type: \array
 
   ASTE __step($left, $right)
 
-define helper __in = if is-function! Array.prototype.index-of
+macro helper __in = if is-function! Array.prototype.index-of
   do index-of = Array.prototype.index-of
     #(child, parent) as Boolean -> index-of@(parent, child) != -1
 else
@@ -1847,7 +1847,7 @@ macro for
       $loop
       $current
 
-define helper __generic-func = #(num-args as Number, make as ->)
+macro helper __generic-func = #(num-args as Number, make as ->)
   let cache = WeakMap()
   let any = {}
   let generic = #
@@ -1919,7 +1919,7 @@ macro generic!(func, types) with label: \generic
       return $func
     AST __generic-func $(types.length), $make-function-func
 
-define operator unary mutate-function! with type: \node, label: \mutate-function
+macro operator unary mutate-function! with type: \node, label: \mutate-function
   node := @macro-expand-1 node
   if not node.is-internal-call \function
     return node
@@ -2216,7 +2216,7 @@ define operator unary mutate-function! with type: \node, label: \mutate-function
   
   result
 
-define helper __range = #(start as Number, end as Number, step as Number, inclusive as Boolean) as [Number]
+macro helper __range = #(start as Number, end as Number, step as Number, inclusive as Boolean) as [Number]
   if step == 0
     throw RangeError "step cannot be zero"
   else if not is-finite start
@@ -2237,7 +2237,7 @@ define helper __range = #(start as Number, end as Number, step as Number, inclus
       result.push i
   result
 
-define helper __step = #(mutable array, step as Number) as []
+macro helper __step = #(mutable array, step as Number) as []
   if step == 0
     throw RangeError "step cannot be zero"
   else if step == 1
@@ -2260,7 +2260,7 @@ define helper __step = #(mutable array, step as Number) as []
         result.push array[i]
     result
 
-define helper __slice-step = #(array, start, end, mutable step, inclusive) as []
+macro helper __slice-step = #(array, start, end, mutable step, inclusive) as []
   let arr = if step ~< 0
     __slice@(array, if inclusive then end else end ~+ 1, start ~+ 1 or Infinity)
   else
@@ -2272,7 +2272,7 @@ define helper __slice-step = #(array, start, end, mutable step, inclusive) as []
   else
     __step(arr, step)
 
-define operator binary instanceofsome with precedence: 6, maximum: 1, invertible: true, type: \boolean
+macro operator binary instanceofsome with precedence: 6, maximum: 1, invertible: true, type: \boolean
   right := @macro-expand-1 right
   if right.is-internal-call \array
     let elements = right.args
@@ -2363,7 +2363,7 @@ macro try
       $init
       $current
 
-define helper __array-to-iter = do
+macro helper __array-to-iter = do
   let proto = {
     iterator: #-> this
     next: #
@@ -2381,7 +2381,7 @@ define helper __array-to-iter = do
       index: -1
     }
 
-define helper __iter = #(iterable)
+macro helper __iter = #(iterable)
   if not iterable?
     throw TypeError "Expected iterable to be an Object, got $(typeof! iterable)"
   else if is-array! iterable
@@ -2566,7 +2566,7 @@ macro switch
       else
         $current
 
-define helper __keys = if is-function! Object.keys
+macro helper __keys = if is-function! Object.keys
   Object.keys
 else
   #(x) as [String]
@@ -2575,19 +2575,19 @@ else
       keys.push key
     keys
 
-define operator unary keys!
+macro operator unary keys!
   ASTE __keys($node)
 
-define helper __allkeys = #(x) as [String]
+macro helper __allkeys = #(x) as [String]
   let keys = []
   for key ofall x
     keys.push key
   keys
 
-define operator unary allkeys!
+macro operator unary allkeys!
   ASTE __allkeys($node)
 
-define helper __new = do
+macro helper __new = do
   let new-creators = []
   #
     if not is-function! this
@@ -2605,11 +2605,11 @@ define helper __new = do
       new-creators[length] := creator
     creator(this, arguments)
 
-define helper __instanceofsome = #(value, array) as Boolean
+macro helper __instanceofsome = #(value, array) as Boolean
   for some item in array by -1
     value instanceof item
 
-define helper __get-instanceof = do
+macro helper __get-instanceof = do
   let is-any = # true
   let is-str = (is-string!)
   let is-num = (is-number!)
@@ -2629,9 +2629,9 @@ define helper __get-instanceof = do
       case Object; is-object
       default; (instanceof ctor)
 
-define helper __name = #(func as ->) as String -> func.display-name or func.name or ""
+macro helper __name = #(func as ->) as String -> func.display-name or func.name or ""
 
-define helper __once = do
+macro helper __once = do
   let replacement() -> throw Error "Attempted to call function more than once"
   let do-nothing() ->
   #(mutable func as ->, silent-fail as Boolean) -> #
@@ -2751,7 +2751,7 @@ macro require!
     else
       @error "Expected either a constant string or ident or object", name
 
-define helper __async = #(mutable limit as Number, length as Number, has-result as Boolean, on-value as ->, on-complete as ->)!
+macro helper __async = #(mutable limit as Number, length as Number, has-result as Boolean, on-value as ->, on-complete as ->)!
   let result = if has-result then [] else null
   if length ~<= 0
     return on-complete null, result
@@ -2787,7 +2787,7 @@ define helper __async = #(mutable limit as Number, length as Number, has-result 
         on-complete(null, result)
   next()
 
-define helper __async-iter = #(mutable limit as Number, iterator as {next: Function}, has-result as Boolean, on-value as ->, on-complete as ->)!
+macro helper __async-iter = #(mutable limit as Number, iterator as {next: Function}, has-result as Boolean, on-value as ->, on-complete as ->)!
   if limit ~< 1 or limit != limit
     limit := Infinity
   let mutable broken = null
@@ -3339,7 +3339,7 @@ macro returning
       $rest
       return $node
 
-define helper __is = if is-function! Object.is
+macro helper __is = if is-function! Object.is
   Object.is
 else
   #(x, y) as Boolean
@@ -3348,7 +3348,7 @@ else
     else
       x != x and y != y
 
-define operator binary is with precedence: 2, maximum: 1, type: \boolean
+macro operator binary is with precedence: 2, maximum: 1, type: \boolean
   left := @macro-expand-1 left
   right := @macro-expand-1 right
   if @has-type(left, \number) and @has-type(right, \number)
@@ -3384,10 +3384,10 @@ define operator binary is with precedence: 2, maximum: 1, type: \boolean
   else
     ASTE $left == $right
 
-define operator binary isnt with precedence: 2, maximum: 1, type: \boolean
+macro operator binary isnt with precedence: 2, maximum: 1, type: \boolean
   ASTE not ($left is $right)
 
-define helper __bind = #(parent, child) as Function
+macro helper __bind = #(parent, child) as Function
   if not parent?
     throw TypeError "Expected parent to be an object, got $(typeof! parent)"
   let func = parent[child]
@@ -3395,7 +3395,7 @@ define helper __bind = #(parent, child) as Function
     throw Error "Trying to bind child '$(String child)' which is not a function"
   # -> func@ parent, ...arguments
 
-define helper __def-prop = do
+macro helper __def-prop = do
   let fallback = Object.define-property
   if is-function! fallback and (do
       try
@@ -3440,13 +3440,13 @@ macro label!
   syntax label as Identifier, node as (Statement|Body)
     @with-label node, label
 
-define helper __compose = #(left as ->, right as ->) as (->)
+macro helper __compose = #(left as ->, right as ->) as (->)
   #-> left@(this, right@(this, ...arguments))
 
-define operator binary << with precedence: 13, type: \function
+macro operator binary << with precedence: 13, type: \function
   ASTE __compose $left, $right
 
-define operator binary >> with precedence: 13, type: \function, right-to-left: true
+macro operator binary >> with precedence: 13, type: \function, right-to-left: true
   if not @is-noop(left) and not @is-noop(right)
     let tmp = @tmp \ref
     AST
@@ -3455,7 +3455,7 @@ define operator binary >> with precedence: 13, type: \function, right-to-left: t
   else
     ASTE __compose $right, $left
 
-define helper __curry = #(num-args as Number, f as ->) as (->)
+macro helper __curry = #(num-args as Number, f as ->) as (->)
   if num-args > 1
     let currier(args)
       if args.length ~>= num-args
@@ -3471,10 +3471,10 @@ define helper __curry = #(num-args as Number, f as ->) as (->)
   else
     f
 
-define operator binary <| with precedence: 0, right-to-left: true
+macro operator binary <| with precedence: 0, right-to-left: true
   ASTE $left($right)
 
-define operator binary |> with precedence: 0
+macro operator binary |> with precedence: 0
   if not @is-noop(left) and not @is-noop(right)
     let tmp = @tmp \ref
     AST
@@ -3483,12 +3483,12 @@ define operator binary |> with precedence: 0
   else
     ASTE $right($left)
 
-define helper __import = #(dest, source) as {}
+macro helper __import = #(dest, source) as {}
   for k of source
     dest[k] := source[k]
   dest
 
-define operator binary <<< with precedence: 6
+macro operator binary <<< with precedence: 6
   right := @macro-expand-1 right
   if right.is-internal-call \object
     @maybe-cache left, #(set-left, left)
@@ -3532,7 +3532,7 @@ define operator binary <<< with precedence: 6
   else
     ASTE __import $left, $right
 
-define operator binary >>> with precedence: 6, right-to-left: true
+macro operator binary >>> with precedence: 6, right-to-left: true
   if not @is-noop(left) and not @is-noop(right)
     let tmp = @tmp \ref
     AST
@@ -3541,7 +3541,7 @@ define operator binary >>> with precedence: 6, right-to-left: true
   else
     ASTE $right <<< $left
 
-define helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else class WeakMap
+macro helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else class WeakMap
   let uid-rand()
     Math.random().to-string(36).slice(2)
   let create-uid()
@@ -3623,7 +3623,7 @@ define helper WeakMap = if is-function! GLOBAL.WeakMap then GLOBAL.WeakMap else 
         keys.splice index, 1
         @_values.splice index, 1
 
-define helper __index-of-identical = #(array, item)
+macro helper __index-of-identical = #(array, item)
   if is-number! item
     if item is NaN
       for check, i in array by -1
@@ -3638,7 +3638,7 @@ define helper __index-of-identical = #(array, item)
       return -1
   array.index-of item
 
-define helper Map = if is-function! GLOBAL.Map then GLOBAL.Map else class Map
+macro helper Map = if is-function! GLOBAL.Map then GLOBAL.Map else class Map
   def constructor(iterable)
     @_keys := []
     @_values := []
@@ -3687,7 +3687,7 @@ define helper Map = if is-function! GLOBAL.Map then GLOBAL.Map else class Map
       yield [key, values[i]]
   def iterator = Map::items
 
-define helper Set = if is-function! GLOBAL.Set then GLOBAL.Set else class Set
+macro helper Set = if is-function! GLOBAL.Set then GLOBAL.Set else class Set
   def constructor(iterable)
     @_items := []
     if iterable?
@@ -3713,7 +3713,7 @@ define helper Set = if is-function! GLOBAL.Set then GLOBAL.Set else class Set
       yield item
   def iterator = Set::values
 
-define operator unary set! with type: \object, label: \construct-set
+macro operator unary set! with type: \object, label: \construct-set
   let set = @tmp \s
   node := @macro-expand-1 node
   if node.is-internal-call \array
@@ -3740,7 +3740,7 @@ define operator unary set! with type: \object, label: \construct-set
         $set.add $item
       $set
 
-define operator unary map! with type: \object, label: \construct-map
+macro operator unary map! with type: \object, label: \construct-map
   let map = @tmp \m
 
   node := @macro-expand-1 node
@@ -3767,7 +3767,7 @@ define operator unary map! with type: \object, label: \construct-map
         $map.set $key, $value
       $map
 
-define helper set-immediate = if is-function! GLOBAL.set-immediate
+macro helper set-immediate = if is-function! GLOBAL.set-immediate
   GLOBAL.set-immediate
 else if not is-void! process and is-function! process.next-tick
   do next-tick = process.next-tick
@@ -3783,7 +3783,7 @@ else
     else
       set-timeout(func, 0)
 
-define helper __defer = do
+macro helper __defer = do
   let __defer()
     let mutable is-error = false
     let mutable value = null
@@ -3860,7 +3860,7 @@ define helper __defer = do
     d.promise
   __defer
 
-define helper __generator-to-promise = #(generator as { send: (->), throw: (->) }, allow-sync as Boolean)
+macro helper __generator-to-promise = #(generator as { send: (->), throw: (->) }, allow-sync as Boolean)
   let continuer(verb, arg)
     let mutable item = void
     try
@@ -3875,7 +3875,7 @@ define helper __generator-to-promise = #(generator as { send: (->), throw: (->) 
   let errback(value) -> continuer \throw, value
   callback(void)
 
-define helper __promise = #(mutable value, allow-sync as Boolean)
+macro helper __promise = #(mutable value, allow-sync as Boolean)
   if is-function! value
     let factory() -> __generator-to-promise value@(this, ...arguments)
     factory.sync := #-> __generator-to-promise(value@(this, ...arguments), true).sync()
@@ -3919,7 +3919,7 @@ macro rejected!(node)
     @error "rejected! only expects one argument"
   @mutate-last node, (#(subnode) -> ASTE __defer.rejected($subnode)), true
 
-define helper __from-promise = #(promise as { then: (->) }) -> #(callback as ->)!
+macro helper __from-promise = #(promise as { then: (->) }) -> #(callback as ->)!
   promise.then(
     #(value) set-immediate callback, null, value
     #(reason) set-immediate callback, reason)
@@ -3929,7 +3929,7 @@ macro from-promise!(node)
     @error "from-promise! only expects one argument"
   ASTE __from-promise $node
 
-define helper __to-promise = #(func as ->, context, args)
+macro helper __to-promise = #(func as ->, context, args)
   let d = __defer()
   func@ context, ...args, #(err, value)!
     if err?
@@ -3968,7 +3968,7 @@ macro to-promise!(node) with type: \promise
   else
     @error "to-promise! call expression must be a call", node
 
-define helper __generator = #(func) -> #
+macro helper __generator = #(func) -> #
   let mutable self = this
   let mutable args as []|null = arguments
   {
@@ -3987,7 +3987,7 @@ define helper __generator = #(func) -> #
       throw err
   }
 
-define helper __some-promise = #(promises as [])
+macro helper __some-promise = #(promises as [])
   let defer = __defer()
   for promise in promises by -1
     promise.then(defer.fulfill, defer.reject)
@@ -4001,7 +4001,7 @@ macro some-promise!(node)
   
   ASTE __some-promise $node
 
-define helper __every-promise = #(promises as {})
+macro helper __every-promise = #(promises as {})
   let is-array = is-array! promises
   let {promise: result-promise, fulfill, reject} = __defer()
   let result = if is-array then [] else {}
@@ -4034,7 +4034,7 @@ macro every-promise!(node)
   
   ASTE __every-promise $node
 
-define helper __delay = #(milliseconds as Number, value)
+macro helper __delay = #(milliseconds as Number, value)
   if milliseconds <= 0
     __defer.fulfilled(value)
   else
@@ -4060,7 +4060,7 @@ macro delay!(milliseconds, value)
     else
       ASTE __delay $milliseconds
 
-define helper __promise-loop = #(mutable limit as Number, length as Number, body as ->)
+macro helper __promise-loop = #(mutable limit as Number, length as Number, body as ->)
   if limit ~< 1 or limit is NaN
     limit := Infinity
   
@@ -4088,7 +4088,7 @@ define helper __promise-loop = #(mutable limit as Number, length as Number, body
   set-immediate flush
   promise
 
-define helper __promise-iter = #(mutable limit as Number, iterator as {next: Function}, body as ->)
+macro helper __promise-iter = #(mutable limit as Number, iterator as {next: Function}, body as ->)
   if limit ~< 1 or limit != limit
     limit := Infinity
   
