@@ -775,12 +775,16 @@ exports.BlockExpression := class BlockExpression extends Expression
       let wrap = level > Level.inside-parentheses and nodes.length > 1
       if wrap
         sb "("
-      for item, i in nodes
+      let inner-level = if wrap then Level.sequence else level
+      for item, i, len in nodes
         if i > 0
           sb ","
           if not options.minify
             sb " "
-        item.compile options, if wrap then Level.sequence else level, false, sb
+        if i < len - 1
+          item.compile-as-block options, inner-level, not wrap and i == 0, sb
+        else
+          item.compile options, inner-level, not wrap and i == 0, sb
       if wrap
         sb ")"
       if options.source-map? and @pos.file
