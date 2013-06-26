@@ -119,7 +119,7 @@ class Scope
     else
       @parent.top()
   
-  def add(ident as Ident|Tmp, is-mutable as Boolean, type as Type)!
+  def add(ident as Ident|Tmp, is-mutable as Boolean, type as Type|->|null)!
     if @destroyed
       throw ScopeDestroyedError()
     if ident instanceof Tmp
@@ -174,7 +174,20 @@ class Scope
   def type(ident as Ident|Tmp)
     if @destroyed
       throw ScopeDestroyedError()
-    get(this, ident)?.type or Type.any
+    let data = get(this, ident)
+    if data
+      let mutable type = data.type
+      if is-function! type
+        data.type := type := type()
+      else
+        type
+
+      if data.is-mutable and type and type.is-subset-of(Type.undefined-or-null)
+        data.type := Type.any
+      else
+        type
+    else
+      Type.any
   
   let get-const(scope, name)
     let consts = scope.consts

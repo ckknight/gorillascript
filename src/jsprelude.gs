@@ -101,7 +101,7 @@ macro debugger
 macro let
   syntax ident as Identifier, func as FunctionDeclaration
     ident.is-ident and @is-primordial(ident) and @error ["Cannot declare primordial '", @name(ident), "'"].join(""), ident
-    @add-variable ident, false, # @type(func)
+    @add-variable ident, false, #@ @type(func)
     @internal-call \block,
       @internal-call \var, ident
       @call(
@@ -280,7 +280,7 @@ macro let
     if declarable.type == \ident
       if declarable.ident.is-ident and @is-primordial(declarable.ident)
         @error "Cannot declare primordial '" ~& @name(declarable.ident) ~& "'", declarable.ident
-      @add-variable declarable.ident, declarable.is-mutable, if declarable.as-type then # @to-type(declarable.as-type) else # @type(value)
+      @add-variable declarable.ident, declarable.is-mutable, if declarable.as-type then #@ @to-type(declarable.as-type) else #@ @type(value)
       @internal-call \block,
         @internal-call \var, declarable.ident
         @mutate-last value,
@@ -1723,7 +1723,7 @@ macro for
     if own or value
       object := @cache object, init, \obj, false
     
-    @add-variable key, false, # @type(\string)
+    @add-variable key, false, @type(\string)
     let let-value = value and @macro-expand-all AST(value) let $value = $object[$key]
     let let-index = index and @macro-expand-all AST(index) let mutable $index = -1
     if @has-func(body)
@@ -2295,7 +2295,7 @@ macro try
         catch-ident := typed-catches[0].ident
       catch-body := for reduce type-catch in typed-catches by -1, current = catch-body or AST(catch-ident) throw $catch-ident
         let type-ident = type-catch.ident
-        let let-err = unless @eq type-ident, catch-ident
+        let let-err = unless type-ident.equals(catch-ident)
           AST(type-ident) let $type-ident = $catch-ident
         else
           @noop()
@@ -3171,11 +3171,11 @@ macro class
     if has-top-level-constructor
       body := body.walk-with-this #(node)@
         if is-def(node) and node.args[1].is-const-value(\constructor)
-          let value = @custom-data(node)[1]
-          let constructor = @rewrap(@func(
-            @func-params value
-            @func-body value
-            AST(value) if eval("this") instanceof $name then eval("this") else { extends $prototype }), value)
+          let value = @macro-expand-1 node.args[2]
+          let constructor = @func(
+            value.args[0]
+            value.args[1]
+            AST(value) if eval("this") instanceof $name then eval("this") else { extends $prototype })
           init.unshift AST(node) let $name as (-> $name) = $constructor
           @noop()
         else if node.is-internal-call \block
@@ -3877,11 +3877,11 @@ macro promise!
       ASTE __promise($node, $sync)
   
   syntax sync as ("(", this as Expression, ")")?, body as GeneratorBody
-    let func = @rewrap(@func([]
+    let func = @func([]
       @auto-return(body)
       true
       null
-      true), body)
+      true)
     
     if not sync or sync.is-const-falsy()
       ASTE __generator-to-promise($func())

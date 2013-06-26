@@ -242,6 +242,68 @@ class MacroContext
       else
         false
 
+  /**
+   * Return the current line or the line of the node passed in.
+   */
+  def line(node)
+    let index = if node instanceof ParserNode
+      node.index
+    else
+      @index
+    @parser.get-position(index).line
+  
+  /**
+   * Return the current column or the column of the node passed in.
+   */
+  def column(node)
+    let index = if node instanceof ParserNode
+      node.index
+    else
+      @index
+    @parser.get-position(index).column
+  
+  /**
+   * Return the current filename.
+   */
+  def file()
+    @parser.options.filename or ""
+  
+  /**
+   * Return the version within the closest package.json file, relative to the current file.
+   */
+  def version()
+    @parser.get-package-version()
+
+  /**
+   * Add a variable to the current scope
+   */
+  def add-variable(ident, is-mutable, mutable type)
+    if ident not instanceofsome [Ident, Tmp]
+      throw TypeError "Expected ident to be an Ident or Tmp, got $(typeof! ident)"
+    if is-function! type
+      type := type@ this
+    if is-mutable and type and type.is-subset-of(Type.undefined-or-null)
+      type := null
+    @scope().add(ident, not not is-mutable, type or Type.any)
+  
+  /**
+   * Return whether the provided Tmp or Ident is a known in-scope variable.
+   */
+  def has-variable(ident)
+    if ident instanceofsome [Tmp, Ident]
+      @scope().has(ident)
+    else
+      false
+  
+  /**
+   * Return whether the provided Tmp or Ident is a known in-scope variable that is mutable.
+   */
+  def is-variable-mutable(ident)
+    if ident instanceofsome [Tmp, Ident]
+      @scope().is-mutable(ident)
+    else
+      false
+  
   def get-tmps()
     unsaved: @unsaved-tmps.slice()
     saved: @saved-tmps.slice()
@@ -254,45 +316,10 @@ class MacroContext
   
   def scope() -> @parser.scope.peek()
 
-  def line(node)
-    let index = if node instanceof ParserNode
-      node.index
-    else
-      @index
-    @parser.get-position(index).line
-  
-  def column(node)
-    let index = if node instanceof ParserNode
-      node.index
-    else
-      @index
-    @parser.get-position(index).column
-  
-  def file()
-    @parser.options.filename or ""
-  
-  def version()
-    @parser.get-package-version()
-  
-  def add-variable(ident, is-mutable, mutable type)
-    if ident not instanceofsome [Ident, Tmp]
-      throw TypeError "Expected ident to be an Ident or Tmp, got $(typeof! ident)"
-    if is-function! type
-      type := type@ this
-    if is-mutable and type and type.is-subset-of(Type.undefined-or-null)
-      type := null
-    @scope().add(ident, not not is-mutable, type or Type.any)
-
   def let(ident as Tmp|Ident, is-mutable as Boolean, mutable type as Type = Type.any)
     if ident instanceof Ident and is-mutable and type.is-subset-of(Type.undefined-or-null)
       type := Type.any
     @scope().add(ident, is-mutable, type)
-  
-  def has-variable(ident as Tmp|Ident)
-    @scope().has(ident)
-  
-  def is-variable-mutable(ident as Tmp|Ident)
-    @scope().is-mutable(ident)
   
   def var(ident as Tmp|Ident)
     ParserNode.InternalCall \var, @index, @scope(),
