@@ -70,6 +70,7 @@
       <li><a href="#coverage">Coverage</a>
       <li><a href="#browser">Browser support</a>
       <li><a href="#ide">Code Editor/IDE support</a>
+      <li><a href="#macros">Macros</a>
       <li><a href="#irc">Chat with others (IRC)</a>
     </ul>
   </nav>
@@ -115,6 +116,7 @@
       <li><a href="#properties">Getters and setters (only in engines that support it)</a>
       <li><a href="#curry">Curried functions</a>
       <li><a href="#generic">Generics</a>
+      <li><a href="#macros">Macros</a>
     </ul>
   </section>
   
@@ -277,7 +279,7 @@ print new Date(__DATEMSEC__)
 MyProject.version := __VERSION__ // would work if we weren't in the browser
 </code></pre>
 
-    <p>Also, if you'd like to have namespaced constants such as in other languages&apos; <code>enum</code>, you can specify an object (or array) as the value. Any unknown access into these objects will result in a compile-time error rather than a value of <code class="language-javascript">undefined</code></p>
+    <p>Also, if you&#8217;d like to have namespaced constants such as in other languages&#8217; <code>enum</code>, you can specify an object (or array) as the value. Any unknown access into these objects will result in a compile-time error rather than a value of <code class="language-javascript">undefined</code></p>
     
     <pre class="gs-code"><code class="language-gorillascript">const FRUIT_TYPES = {
   apple: 1
@@ -1848,6 +1850,206 @@ Gtk.main()
     <p>If you would like to contribute to this list, please <a href="https://github.com/ckknight/gorillascript/issues">file an issue</a>.</p>
   </section>
   
+  <section id="macros">
+    <h2>Macros</h2>
+
+    <p>Note: This is probably the most complex section in this documentation.</p>
+
+    <p>Macros are a way to write some code that will be used to write other code. They are similar to functions, except that they are evaluated during compile-time rather than run-time. This means that the macros themselves won't appear in the resultant JavaScript source code, as they will have been executed as-necessary and not need to exist when the JavaScript itself is executed.</p>
+
+    <p>Macro names can be normal identifiers, custom symbols, or a mixture of the two.</p>
+
+    <p>Due to GorillaScript's flexible syntax, there are five types of macro syntaxes.</p>
+
+    <p>All the macros you can write are just as capable as any built-in GorillaScript syntax construct, as nearly all of GorillaScript's syntax are actually defined as macros.</p>
+
+    <h3>Unary operators (both prefix and postfix)</h3>
+
+    <p>Say you want an operator that evaluates whether or not an expression is a positive number:</p>
+
+    <pre class="gs-code"><code class="language-gorillascript">macro operator unary +?
+  // the following idents are available:
+  //   op (which will always be "+?" in this case)
+  //   node (which will be the node to the right of this unary prefix macro)
+
+  // we'll use an inline AST expression rather than building the nodes ourself:
+  // the '$' before 'node' means we will interpolate it, just like with strings.
+  ASTE $node > 0
+
+assert(+?500)
+assert(not +?(-500))
+assert(+?f())
+</code></pre>
+    
+    <h3>Binary operators</h3>
+
+    <p>Say you have a set (from type theory) and it would be nice to have a 'union' operator instead of relying on methods:</p>
+
+    <pre class="gs-code"><code class="language-gorillascript">macro operator binary union, ∪
+  // the following idents are available:
+  //   op (which will either be "union" or "∪", i.e. "\u222a")
+  //   left (which will be the node to the left of the binary operator)
+  //   right (which will be the node to the right of the binary operator)
+
+  ASTE $left.union($right)
+
+assert(alpha union bravo union charlie)
+assert(alpha ∪ bravo ∪ charlie ∪ delta)
+</code></pre>
+    
+    <h3>Assign operators</h3>
+
+    <p>Mostly used when paired with a binary operator, I'll reuse the previous example</p>
+
+    <pre class="gs-code"><code class="language-gorillascript">macro operator assign union=, ∪=
+  // the following idents are available:
+  //   op (which will either be "union=" or "∪=", i.e. "\u222a=")
+  //   left (which will be the node to the left of the assign operator)
+  //   right (which will be the node to the right of the assign operator)
+
+  // here we need to potentially cache parts of the left-hand-side, since we're referencing it twice.
+  // this will convert a()[b()] to tmp1[tmp2].
+  @maybe-cache-access left, #(set-left, left)
+    ASTE $set-left := $left.union($right)
+
+let mutable alpha = some-set()
+alpha union= bravo
+alpha ∪= charlie
+get-obj()[key()] union= delta()
+</code></pre>
+    
+    <h3>Call-like macros</h3>
+
+    <p>Unlike the previous operators, this has a syntax that looks like any ordinary function call, with the exception that the name could also be or contain a symbol.</p>
+
+    <p>Here is an example of what you shouldn't do in a macro:
+
+    <pre class="gs-code"><code class="language-gorillascript">macro square(value)
+  ASTE $value * $value
+
+assert(square(3) == 9)
+let mutable i = 0
+let f()
+  i += 1
+assert(square(f()) == 2) // what? 2 isn't a square, but f() was called twice, uh-oh.
+square(Math.random()) // two different random numbers multiplied together.
+</code></pre>
+    
+    <p>Here is how the previous macro should have been written:</p>
+
+    <pre class="gs-code"><code class="language-gorillascript">macro square(value)
+  @maybe-cache value, #(set-value, value)
+    ASTE $set-value * $value
+
+assert(square(3) == 9)
+let mutable i = 0
+let f()
+  i += 1
+assert(square(f()) == 1) // huzzah, 1 * 1 == 1
+assert(square(f()) == 4) // huzzah, 2 * 2 == 4
+square(Math.random()) // the same random number squared with itself.
+</code></pre>
+    
+    <p>There are practically no restrictions on how you use the arguments passed to your macros, so you have to be aware of edge cases and cache when necessary.</p>
+
+    <p>Another nice trick about macros is that not all of the arguments have to be evaluated, for example:</p>
+
+    <pre class="gs-code"><code class="language-gorillascript">macro get-or-add(cache, key, value)
+  @maybe-cache cache, #(set-cache, cache)
+    @maybe-cache key, #(set-key, key)
+      let tmp = @tmp() // we need a temporary variable to store things into.
+      AST
+        let mutable $tmp = $set-cache[$set-key]
+        if $tmp == void
+          $cache[$key] := $tmp := $value
+        $tmp
+
+let some-cache = {}
+let x = get-or-add some-cache, key, something-expensive()
+let y = get-or-add some-cache, key, something-expensive() // something-expensive() is never executed
+</code></pre>
+    
+    <p>Even though it appears that <code>something-expensive()</code> would be executed twice, it is only executed the first time, even without wrapping it in a function or anything like that (as would be necessary without macros).</p>
+
+    <h3>Custom-syntax macros</h3>
+
+    <p>This are where the real magic sets in. By allowing custom syntax, you can design any syntax construct that your mind can think up. In fact, nearly all GorillaScript syntax uses this, from the lowly <code>if</code> statement to the prestigous <code>try-catch</code>.</p>
+
+    <pre class="gs-code"><code class="language-gorillascript">macro timer!
+  // either an indented Body or a single-line Statement are accepted
+  syntax body as (Body | Statement)
+    // the following idents are available:
+    //   macro-name (which will always be "timer!" for this macro)
+    //   body (which will contain the Body or Statement)
+    let time = @tmp \time
+    AST
+      let mutable $time = new Date().get-time()
+      $body
+      new Date().get-time() - $time
+
+  // other syntaxes could be specified here
+
+let time = timer! something-expensive()
+let other-time = timer!
+  various()
+  expensive()
+  calls()
+</code></pre>
+    
+    <p>Or if you&#8217;re pining for a <code>when</code> statement separate from <code>if</code>,</p>
+
+    <pre class="gs-code"><code class="language-gorillascript">macro when
+  syntax test as Logic, "then", body as Expression
+    // the following idents are available:
+    //   macro-name (which will always be "when" for this macro)
+    //   test
+    //   body
+    ASTE if $test then $body
+
+  syntax test as Logic, body as Body
+    // same idents as before, since they are named the same.
+    AST
+      if $test
+        $body
+
+when is-hungry() or is-bored() then eat()
+
+when is-angry()
+  calm-down()
+</code></pre>
+
+    <p>The syntaxes are defined by a comma-separated list of names (with the type of node attached) or literal strings.</p>
+
+    <p>The built-in sequences are as-follows:</p>
+
+    <ul>
+      <li><code>Expression</code>: All normal expressions, including calling other macros. (Does not include assignments)</p>
+      <li><code>Logic</code>: Normal expressions except for immediate calls of other macros (but they can occur inside or within parentheses</li>
+      <li><code>Assignment</code>: An assignment expression, e.g. <code>a := b</code></li>
+      <li><code>ExpressionOrAssignment</code>: an Expression or Assignment</li>
+      <li><code>Statement</code>: Similar to ExpressionOrAssignment, except parsed as a statement rather than an expression.</li>
+      <li><code>Body</code>: An indented body of code.</li>
+      <li><code>BodyNoEnd</code>: An indented body of code, without a trailing "end" in 'noindent'-mode. To be used if a single macro has multiple bodies, e.g. <code>if</code> or <code>try-catch</code></li>
+      <li><code>ExpressionOrAssignmentOrBody</code>: an Expression or Assignment or Body</li>
+      <li><code>GeneratorBody</code>: An indented body of code, marked as if it were inside a generator function. Handy if a generator function will be produced from the body (as in <code>promise!</code>)</li>
+      <li><code>GeneratorBodyNoEnd</code>: GeneratorBody without the trailing "end" in 'noindent'-mode.</li>
+      <li><code>DedentedBody</code>: A body of code that unlike <code>Body</code>, is not dedented. This allows for a macro to capture all code (within the same block) after it, such as the <code>async</code> macros.</li>
+      <li><code>Identifier</code>: A simple identifier, no complexities allowed.</li>
+      <li><code>SimpleAssignable</code>: An assignable expression, such as <code>a.b.c</code>.</li>
+      <li><code>Parameter</code>: A parameter, as would exist within a function's parameter sequence.</li>
+      <li><code>InvocationArguments</code>: A sequence of invocation arguments, may or may not include the parentheses. Follows all the same rules as regular invocation.</li>
+      <li><code>ObjectLiteral</code>: An object literal, either closed with braces or unclosed.</li>
+      <li><code>ArrayLiteral</code>: An array literal.</li>
+      <li><code>ObjectKey</code>: An expression that could be used as an object key. May be wrapped in square brackets to represent a normal expression, otherwise it will be treated as a literal string.</li>
+      <li><code>FunctionDeclaration</code>: A function, requiring at least an empty parameter list. Does not include the initial <code>#</code> of an anonymous function, so can be used to create macros such as <code>def key(param) do-something()</code> where <code>(param) do-something()</code> is the FunctionDeclaration.</li>
+      <li><code>Type</code>: A type such as <code>String</code>, <code>[Number]</code> (array of numbers), <code>Generic&lt;T&gt;</code>, <code>-&gt;</code> (function).</li>
+    </ul>
+
+    <p>Literal strings (such as <code>"then"</code>) can be used as well without issue. Spacing around all elements is implicit.</p>
+
+    <p>Note: It is important to end a macro with <code>"end"</code> when using <code>BodyNoEnd</code> or <code>GeneratorBodyNoEnd</code>.</p>
+  </section>
+
   <section id="irc">
     <h2>Chat with others (IRC)</h2>
     
