@@ -457,6 +457,12 @@ describe "Simple operators", #
       a & b
     expect(concat-known-numbers()).to.equal "12"
 
+    let unstrict-concat-assign(mutable a, b) -> a ~&= b()
+    expect(unstrict-concat-assign("1", run-once("2"))).to.equal "12"
+    expect(unstrict-concat-assign(1, run-once("2"))).to.equal "12"
+    expect(unstrict-concat-assign("1", run-once(2))).to.equal "12"
+    expect(unstrict-concat-assign(1, run-once(2))).to.equal "12"
+
   it "delete removes key", #
     let obj = { alpha: "bravo", charlie: "delta" }
   

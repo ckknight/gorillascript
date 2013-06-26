@@ -614,7 +614,7 @@ define operator assign ~&= with type: \string
   let left-is-numeric = @has-type(left, \numeric)
   let assign(right)@
     @call @assign-operator("+="), left, if left-is-numeric and @has-type(right, \numeric)
-      ASTE(right) "" ~& right
+      ASTE(right) "" ~& $right
     else
       right
   if left.is-ident-or-tmp
