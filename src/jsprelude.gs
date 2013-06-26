@@ -290,6 +290,7 @@ macro let
               declarable.ident
               subnode)
           true
+        ASTE void
     else if declarable.type == \array
       let num-real-elements(i, acc)
         if i ~< declarable.elements.length
@@ -309,12 +310,14 @@ macro let
               block.push elements[i]
               handle@ this, elements, inc(i), block
           else
-            block.push value
+            block.push ASTE void
             @internal-call \block, block
         handle@ this, value.args, 0, []
       else if num-real-elements(0, 0) ~<= 1
         let handle-item(element, index)
-          @macro-expand-1 AST let $element = $value[$index]
+          @internal-call \block,
+            @macro-expand-1 AST let $element = $value[$index]
+            ASTE void
         let handle(i)
           if i ~< declarable.elements.length
             if declarable.elements[i]
@@ -322,10 +325,12 @@ macro let
             else
               handle@ this, inc(i)
           else
-            value
+            AST
+              $value
+              void
         handle@ this, 0
       else 
-        @maybe-cache value, #(set-value, value)
+        @maybe-cache value, #(set-value, value, cached)
           let handle-item(i, element, index, block)
             block.push @macro-expand-1 AST let $element = $value[$index]
             handle@ this, inc(i), block
@@ -336,18 +341,22 @@ macro let
               else
                 handle@ this, inc(i), block
             else
-              block.push value
+              if cached
+                block.push AST $value := null
+              block.push ASTE void
               @internal-call \block, block
           handle@ this, 0, [set-value]
     else if declarable.type == \object
       if declarable.pairs.length == 1
         let handle-item(left, key)
-          @macro-expand-1 AST let $left = $value[$key]
+          @internal-call \block,
+            @macro-expand-1 AST let $left = $value[$key]
+            ASTE void
         let handle(pair)
           handle-item@ this, pair.value, pair.key
         handle@ this, @macro-expand-1(declarable.pairs[0])
       else
-        @maybe-cache value, #(set-value, value)
+        @maybe-cache value, #(set-value, value, cached)
           let handle-item(i, left, key, block)
             block.push @macro-expand-1 AST let $left = $value[$key]
             handle@ this, inc(i), block
@@ -357,7 +366,9 @@ macro let
             if i ~< declarable.pairs.length
               handle-pair@ this, i, @macro-expand-1(declarable.pairs[i]), block
             else
-              block.push value
+              if cached
+                block.push AST $value := null
+              block.push ASTE void
               @internal-call \block, block
           handle@ this, 0, [set-value]
     else
@@ -3266,7 +3277,9 @@ macro class
       result := ASTE generic! $result, $generic-args-array
     
     if declaration?
-      AST let $declaration = $result
+      AST
+        let $declaration = $result
+        $declaration
     else if assignment?
       ASTE $assignment := $result
     else

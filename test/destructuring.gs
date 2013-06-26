@@ -126,16 +126,20 @@ describe "let destructuring", #
       let [x, , y] = [5, 6, 7]
       expect(x).to.equal 5
       expect(y).to.equal 7
-    /*
+
     it "returns the full array if in the return position, with one destructure", #
       let f(get-arr)
         let [a] = get-arr()
-      expect(f(#-> [1, 2, 3])).to.eql [1, 2, 3]
-    */
-    it "returns the full array if in the return position, with multiple destructures", #
+      let get = stub().returns [1, 2, 3]
+      expect(f(get)).to.be.undefined
+      expect(get).to.be.called-once
+
+    it "returns void if in the return position, with multiple destructures", #
       let f(get-arr)
         let [a, b] = get-arr()
-      expect(f(#-> [1, 2, 3])).to.eql [1, 2, 3]
+      let get = stub().returns [1, 2, 3]
+      expect(f(get)).to.be.undefined
+      expect(get).to.be.called-once
 
   describe "object", #
     it "works with an ident", #
@@ -201,16 +205,20 @@ describe "let destructuring", #
       let {a: b} = fun()
       expect(b).to.equal \b
       expect(fun).to.be.called-once
-    /*
-    it "returns the full object if in the return position, with one destructure", #
+    
+    it "returns void if in the return position, with one destructure", #
       let f(get-obj)
         let {a} = get-obj()
-      expect(f(#-> {a: 1, b: 2, c: 3})).to.eql {a: 1, b: 2, c: 3}
-    */
-    it "returns the full object if in the return position, with multiple destructures", #
+      let get = stub().returns {a: 1, b: 2, c: 3}
+      expect(f(get)).to.be.undefined
+      expect(get).to.be.called-once
+    
+    it "returns void if in the return position, with multiple destructures", #
       let f(get-obj)
         let {a, b} = get-obj()
-      expect(f(#-> {a: 1, b: 2, c: 3})).to.eql {a: 1, b: 2, c: 3}
+      let get = stub().returns {a: 1, b: 2, c: 3}
+      expect(f(get)).to.be.undefined
+      expect(get).to.be.called-once
 
 describe "for loop destructuring", #
   describe "in array", #

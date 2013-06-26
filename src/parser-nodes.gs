@@ -621,36 +621,63 @@ class Symbol extends Node
             Symbol.label call.index
             label
             call
-        __reduce(call, parser)
-          let mutable changed = false
-          let body = []
-          let args = call.args
-          for node, i, len in args
-            if node instanceof Symbol.nothing
-              changed := true
-            else if node instanceof Node and node.is-internal-call()
-              if node.func.is-block
-                body.push ...node.args
+        __reduce: do
+          let squish-body(mutable body)
+            let mutable changed = false
+            for i in body.length - 1 til 0 by -1
+              let current = body[i]
+              let previous = body[i - 1]
+              if previous.is-assign-call("=") and not (previous.args[0].is-ident-or-tmp and not previous.scope.is-mutable(previous.args[0]) and previous.args[1].is-internal-call(\function))
+                if previous.args[0].equals(current)
+                  // convert (a = b, a) to (a = b)
+                  if not changed
+                    body := body.slice()
+                    changed := true
+                  body.splice i, 1
+                else if current.is-assign-call() and previous.args[0].equals(current.args[1])
+                  // convert (a = b, c op= a) to (c op= a = b)
+                  if not changed
+                    body := body.slice()
+                    changed := true
+                  body.splice i - 1, 2, Call current.index, current.scope,
+                    current.func
+                    current.args[0]
+                    previous
+            body
+          #(call, parser)
+            let mutable changed = false
+            let mutable body = []
+            let args = call.args
+            for node, i, len in args
+              if node instanceof Symbol.nothing or (i < len - 1 and node.is-const())
                 changed := true
-              else if node.func.is-goto
-                body.push node
-                if i < len - 1
+              else if node instanceof Node and node.is-internal-call()
+                if node.func.is-block
+                  body.push ...node.args
                   changed := true
-                break
+                else if node.func.is-goto
+                  body.push node
+                  if i < len - 1
+                    changed := true
+                  break
+                else
+                  body.push node
               else
                 body.push node
-            else
-              body.push node
-          switch body.length
-          case 0
-            Symbol.nothing @index
-          case 1
-            body[0]
-          default
-            if changed
-              Call @index, @scope,
-                call.func
-                ...body
+            let new-body = squish-body body
+            if new-body != body
+              changed := true
+              body := new-body
+            switch body.length
+            case 0
+              Symbol.nothing @index
+            case 1
+              body[0]
+            default
+              if changed
+                Call @index, @scope,
+                  call.func
+                  ...body
         _is-statement: do
           let cache = Cache<Call, Boolean>()
           #(call)

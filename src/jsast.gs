@@ -101,7 +101,7 @@ let wrap-string-handler(callback)
   cb
 
 let StringWriter(callback)
-  let sb = wrap-string-handler callback
+  wrap-string-handler callback
 
 let StringBuilder()
   let mutable data as String|Array = []
