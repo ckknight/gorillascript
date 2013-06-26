@@ -173,9 +173,9 @@ else
   #(name as String, func as ->) -> func
 
 macro wrap!(name, rule)
-  if @is-ident name
+  if name.is-ident
     rule := name
-    name := @const @name rule
+    name := @const rule.name
   ASTE if DEBUG then wrap($name, $rule) else $rule
 
 let from-char-code = do
@@ -212,10 +212,11 @@ let chars-to-fake-set(array) as {}
   obj
 
 let stack-wrap(func as ->)
-  func.stack := Error().stack
+  if DEBUG
+    func.stack := Error().stack
   func
 macro stack-wrap!(func)
-  @mutate-last func or @noop(), (#(n)@ -> ASTE stack-wrap($n)), true
+  @mutate-last func, (#(n)@ -> ASTE if DEBUG then stack-wrap($n) else $n), true
 
 let character(name as String, expected as Number) -> stack-wrap! #(parser, index as Number)
   if C(parser.source, index) == expected
@@ -723,27 +724,27 @@ let any-except(mutable rule as ->)
       AnyChar parser, index
 
 macro character!(chars, name)
-  if @is-const(chars)
-    if not is-string! @value(chars)
-      throw Error "Must provide a literal array or string"
-  else if not @is-array(chars)
-    throw Error "Must provide a literal array or string"
+  chars := @macro-expand-1 chars
+  if chars.is-const()
+    unless chars.is-const-type \string
+      @error "Must provide a literal array or string", chars
+  else if not chars.is-internal-call \array
+    @error "Must provide a literal array or string", chars
   let codes = []
-  if @is-const(chars)
-    chars := @value(chars)
+  if chars.is-const()
+    chars := chars.const-value()
     for i in 0 til chars.length
       codes.push C(chars, i)
   else
-    for part in @elements(chars) by -1
-      if @is-array(part)
-        if @elements(part).length != 2
-          throw Error "Sub-arrays must be length 2"
-        let mutable left = @elements(part)[0]
-        let mutable right = @elements(part)[1]
-        if not @is-const(left) or not @is-const(right)
-          throw Error "Sub-arrays must contain constant strings or numbers"
-        left := @value(left)
-        right := @value(right)
+    for part in chars.args by -1
+      if part.is-internal-call \array
+        if part.args.length != 2
+          @error "Sub-arrays must be length 2", part
+        let [mutable left, mutable right] = part.args
+        unless left.is-const() and right.is-const()
+          @error "Sub-arrays must contain constant strings or numbers", part
+        left := left.const-value()
+        right := right.const-value()
         if is-string! left
           if left.length != 1
             throw Error "Expected a string of length 1"
@@ -760,17 +761,17 @@ macro character!(chars, name)
           throw Error "left must be less than or equal to right"
         for i in left to right
           codes.push i
-      else if @is-const(part)
-        let mutable value = @value(part)
+      else if part.is-const()
+        let mutable value = part.const-value()
         if is-string! value
           for i in 0 til value.length
             codes.push C(value, i)
         else if is-number! value
           codes.push value
         else
-          throw Error "Expected a string or number"
+          @error "Expected a string or number", part
       else
-        throw Error "Array values must be length-2 Arrays or constant Strings or Numbers"
+        @error "Array values must be length-2 Arrays or constant Strings or Numbers", part
   codes.sort #(x, y) -> x <=> y
   let chunks = []
   let mutable current-start = void
@@ -828,8 +829,8 @@ macro character!(chars, name)
         array.push @const chunk.start
         array.push @const chunk.end
       else
-        array.push @array [@const(chunk.start), @const(chunk.end)]
-    array := @array array
+        array.push @internal-call \array, @const(chunk.start), @const(chunk.end)
+    array := @internal-call \array, array
     ASTE characters $name, chars-to-fake-set($array)
 
 let SpaceChar = character! [

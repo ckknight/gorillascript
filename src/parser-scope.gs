@@ -178,6 +178,9 @@ class Scope
     if data
       let mutable type = data.type
       if is-function! type
+        // in case type() ends up being self-referential, we will temporarily
+        // mark this type as 'any'
+        data.type := Type.any
         data.type := type := type()
       else
         type

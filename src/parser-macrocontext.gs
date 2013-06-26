@@ -80,6 +80,12 @@ class MacroContext
     factory @index
 
   /**
+   * Alias for @internal(\nothing)
+   */
+  def noop()
+    ParserNode.Symbol.nothing @index
+
+  /**
    * Construct and return a new assign operator symbol with the provided `name`.
    *
    * If `name` is not in the known set of assign operator names, an error is thrown.
@@ -280,11 +286,7 @@ class MacroContext
   def add-variable(ident, is-mutable, mutable type)
     if ident not instanceofsome [Ident, Tmp]
       throw TypeError "Expected ident to be an Ident or Tmp, got $(typeof! ident)"
-    if is-function! type
-      type := type@ this
-    if is-mutable and type and type.is-subset-of(Type.undefined-or-null)
-      type := null
-    @scope().add(ident, not not is-mutable, type or Type.any)
+    @scope().add(ident, not not is-mutable, type)
   
   /**
    * Return whether the provided Tmp or Ident is a known in-scope variable.
@@ -303,6 +305,113 @@ class MacroContext
       @scope().is-mutable(ident)
     else
       false
+  
+  /**
+   * Return a node with the provided label attached to it.
+   */
+  def with-label(node, label as Ident|Tmp|null)
+    if node instanceof ParserNode
+      node.with-label label, @parser
+    else
+      node
+  
+  /**
+   * Cache a node if needed by pushing its initialization onto the `init` array.
+   */
+  def cache(node as ParserNode, init as [], name as String = \ref, save as Boolean)
+    @maybe-cache node, (#(set-node, node, cached)
+      if cached
+        init.push set-node
+      node), name, save
+  
+  /**
+   * Cache a node if needed and call `func` with the results.
+   */
+  def maybe-cache(mutable node as ParserNode, func as ->, name as String = \ref, save as Boolean)
+    node := @macro-expand-1(node)
+    if node.cacheable
+      let type = node.type(@parser)
+      let tmp = @tmp(name, save, type)
+      @scope().add tmp, false, type
+      let set-tmp = ParserNode.InternalCall \block, @index, @scope(),
+        ParserNode.InternalCall \var, @index, @scope(), tmp
+        ParserNode.Call @index, @scope(),
+          ParserNode.Symbol.assign["="] @index
+          tmp
+          @do-wrap(node)
+      func@ this, set-tmp, tmp, true
+    else
+      func@ this, node, node, false
+  
+  /**
+   * Cache an access node if needed, separately caching the parent and child.
+   */
+  def maybe-cache-access(mutable node as ParserNode, func, parent-name as String = \ref, child-name as String = \ref, save as Boolean)
+    node := @macro-expand-1 node
+    if node.is-internal-call \access
+      @maybe-cache node.args[0], (#(set-parent, parent, parent-cached)
+        @maybe-cache node.args[1], (#(set-child, child, child-cached)
+          if parent-cached or child-cached
+            func@ this,
+              ParserNode.InternalCall \access, @index, @parser.scope.peek(),
+                set-parent
+                set-child
+              ParserNode.InternalCall \access, @index, @parser.scope.peek(),
+                parent
+                child
+              true
+          else
+            func@ this, node, node, false), child-name, save), parent-name, save
+    else
+      func@ this, node, node, false
+  
+  /**
+   * Return whether a given node's type is a subset of the provided type name
+   */
+  def is-type(node, name as String)
+    if node not instanceof ParserNode
+      return false
+    let type = Type![name]
+    if not type? or type not instanceof Type
+      throw Error "$name is not a known type name"
+    node.type(@parser).is-subset-of(type)
+  
+  /**
+   * Return whether a given node's type overlaps with the provided type name
+   */
+  def has-type(node, name as String)
+    if node not instanceof ParserNode
+      return false
+    let type = Type![name]
+    if not type? or type not instanceof Type
+      throw Error "$name is not a known type name"
+    node.type(@parser).overlaps(type)
+
+  /**
+   * If `node` is a MacroAccess, then expand it, otherwise return the same node.
+   */
+  def macro-expand-1(node)
+    if node instanceof ParserNode
+      let expanded = @parser.macro-expand-1(node)
+      if expanded instanceof ParserNode
+        expanded.reduce(@parser)
+      else
+        expanded
+    else
+      node
+  
+  /**
+   * Walk through node and all its subnodes, expanding any macros.
+   */
+  def macro-expand-all(node)
+    if node instanceof ParserNode
+      let expanded = @parser.macro-expand-all(node)
+      if expanded instanceof ParserNode
+        expanded.reduce(@parser)
+      else
+        expanded
+    else
+      node
   
   def get-tmps()
     unsaved: @unsaved-tmps.slice()
@@ -329,8 +438,6 @@ class MacroContext
     ParserNode.InternalCall(\custom, @index, @scope(),
       ParserNode.Value @index, name
       ...data).reduce(@parser)
-  def noop()
-    ParserNode.Symbol.nothing @index
   def block(nodes as [ParserNode])
     ParserNode.InternalCall(\block, @index, @scope(), ...nodes).reduce(@parser)
   def if(test as ParserNode = ParserNode.Symbol.nothing(0), when-true as ParserNode = ParserNode.Symbol.nothing(0), when-false as ParserNode = ParserNode.Symbol.nothing(0))
@@ -469,29 +576,7 @@ class MacroContext
       node.args[0]
     else
       null
-  def with-label(node, label as Ident|Tmp|null)
-    node.with-label label, @parser
-  
-  def macro-expand-1(node)
-    if node instanceof ParserNode
-      let expanded = @parser.macro-expand-1(node)
-      if expanded instanceof ParserNode
-        expanded.reduce(@parser)
-      else
-        expanded
-    else
-      node
-  
-  def macro-expand-all(node)
-    if node instanceof ParserNode
-      let expanded = @parser.macro-expand-all(node)
-      if expanded instanceof ParserNode
-        expanded.reduce(@parser)
-      else
-        expanded
-    else
-      node
-  
+
   def is-const(node) -> is-void! node or (node instanceof ParserNode and @real(node).is-const())
   def value(node)
     if is-void! node
@@ -836,47 +921,6 @@ class MacroContext
     node := @real(node)
     node instanceof ParserNode and node.is-internal-call(\if) and node.args[2]
   
-  def cache(node as ParserNode, init, name as String = \ref, save as Boolean)
-    @maybe-cache node, (#(set-node, node, cached)
-      if cached
-        init.push set-node
-      node), name, save
-  
-  def maybe-cache(mutable node as ParserNode, func, name as String = \ref, save as Boolean)
-    node := @macro-expand-1(node)
-    if @is-complex node
-      let type = node.type(@parser)
-      let tmp = @tmp(name, save, type)
-      @scope().add tmp, false, type
-      let set-tmp = ParserNode.InternalCall \block, @index, @scope(),
-        ParserNode.InternalCall \var, @index, @scope(), tmp
-        ParserNode.Call @index, @scope(),
-          ParserNode.Symbol.assign["="] @index
-          tmp
-          @do-wrap(node)
-      func@ this, set-tmp, tmp, true
-    else
-      func@ this, node, node, false
-  
-  def maybe-cache-access(mutable node as ParserNode, func, parent-name as String = \ref, child-name as String = \ref, save as Boolean)
-    node := @macro-expand-1 node
-    if @is-access(node)
-      @maybe-cache @parent(node), (#(set-parent, parent, parent-cached)
-        @maybe-cache @child(node), (#(set-child, child, child-cached)
-          if parent-cached or child-cached
-            func@ this,
-              ParserNode.InternalCall \access, @index, @parser.scope.peek(),
-                set-parent
-                set-child
-              ParserNode.InternalCall \access, @index, @parser.scope.peek(),
-                parent
-                child
-              true
-          else
-            func@ this, node, node, false), child-name, save), parent-name, save
-    else
-      func@ this, node, node, false
-  
   def empty(node)
     if not node?
       true
@@ -1078,17 +1122,5 @@ class MacroContext
   def is-statement(mutable node)
     node := @macro-expand-1 node // TODO: should this be macro-expand-all?
     node instanceof ParserNode and node.is-statement()
-  
-  def is-type(node, name as String)
-    let type = Type![name]
-    if not type? or type not instanceof Type
-      throw Error "$name is not a known type name"
-    node.type(@parser).is-subset-of(type)
-  
-  def has-type(node, name as String)
-    let type = Type![name]
-    if not type? or type not instanceof Type
-      throw Error "$name is not a known type name"
-    node.type(@parser).overlaps(type) // TODO: should this be macro-expand-all?
 
 module.exports := MacroContext
