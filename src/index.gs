@@ -45,13 +45,116 @@ jQuery #($)
     false
   $("a[href=#try]").click safe #
     handle-try()
+    $("#repl").hide()
     let $try = $("#try")
-    $try.slide-toggle()
-    $("#run-link").toggle-class "hide"
+    if $try.is(":visible")
+      $("#run-link").add-class "hide"
+      $("#repl-link").remove-class "hide"
+    else
+      $("#run-link").remove-class "hide"
+      $("#repl-link").add-class "hide"
+    $("#try").slide-toggle()
     false
   $("a[href=#run]").click safe #
     handle-run()
     false
+  $("a[href=#repl]").click safe #
+    $("#try").hide()
+    $("#repl").slide-toggle()
+    $("#run-link").add-class "hide"
+    $("#repl-link").remove-class "hide"
+    let $repl-input = $("#repl-input")
+    set-timeout (#
+      if $repl-input.is ":visible"
+        $("#repl-input").focus()), 17_ms
+    false
+
+  let inspect(value, depth)
+    if is-null! value or typeof value in [\undefined, \number, \boolean, \function]
+      String value
+    else if is-string! value
+      JSON.stringify value
+    else if is-function! value.inspect
+      value.inspect(depth)
+    else if not depth
+      Object::to-string@ value
+    else if is-array! value
+      inspect-array value, depth
+    else if value.constructor == Object
+      inspect-object value, depth
+    else if value::to-string != Object::to-string
+      String value
+    else
+      "(object $(typeof! value))"
+
+  let inspect-array(array, depth)
+    if array.length == 0
+      return "[]"
+    let depth-1 = if depth? then depth - 1
+    let sb = []
+    sb.push "[ "
+    for item, i, len in array
+      sb.push inspect(item, depth-1).split("\n").join("\n  ")
+      if i < len - 1
+        sb.push ",\n  "
+    sb.push " ]"
+    sb.join ""
+
+  let inspect-object(object, depth)
+    let depth-1 = if depth? then depth - 1
+    let keys = keys! object
+    if keys.length == 0
+      return "{}"
+    let sb = []
+    sb.push "{ "
+    for key, i, len in keys
+      let value = object[key]
+      sb.push JSON.stringify(key)
+      sb.push ":"
+      let inspected-value = inspect(value, depth-1)
+      if inspected-value.index-of("\n") != -1
+        sb.push "\n    "
+        sb.push inspected-value.split("\n").join("\n    ")
+      else
+        sb.push " "
+        sb.push inspected-value
+      if i < len - 1
+        sb.push ",\n  "
+    sb.push " }"
+    sb.join ""
+
+  let is-enter(event)
+    event.which in [10, 13]
+  let mutable repl-buffer = null
+  $("#repl-input").keypress safe #(event)
+    if is-enter(event)
+      let mutable text = $(this).val()
+      $(this).val("")
+      let $output = $("#repl-output")
+      let has-buffer = repl-buffer?
+      let mutable total-text = ""
+      let buffering = text.length > 0 and text.char-code-at(text.length - 1) == "\\".char-code-at(0)
+      if repl-buffer?
+        repl-buffer &= "\n"
+      else
+        repl-buffer := ""
+      repl-buffer &= if buffering
+        text.substring(0, text.length - 1)
+      else
+        text
+      $output.val $output.val() & "\n$(if has-buffer then '..' else 'gs')> $text"
+      if buffering
+        $("#repl-input-label").text("..>")
+      else
+        $("#repl-input-label").text("gs>")
+        let buffer = repl-buffer
+        repl-buffer := null
+        async err, result <- (from-promise! GorillaScript.eval buffer)()
+        if err
+          $output.val $output.val() & "\n" & String(err?.stack or err)
+        else
+          $output.val $output.val() & "\n" & inspect(result, 2)
+      false
   $("#irc-button").click safe #
     let url = $(this).data("url")
     $(this).replace-with $("<iframe id='irc-iframe' src='$url'></iframe>")

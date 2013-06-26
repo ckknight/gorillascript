@@ -11,7 +11,7 @@ body {
 h1, h2, h3, h4, h5, h6, p, body {
 	font-family: Helvetica, arial, freesans, clean, sans-serif;
 }
-#try textarea, #try-error {
+#try textarea, #try-error, #repl textarea, #repl input, #repl-input-label {
 	font-family: Consolas, Monaco, "Courier New", monospace;
 }
 #try-error { font-size: 12px; }
@@ -142,8 +142,8 @@ footer p { margin: auto; }
 	height: 35px;
 }
 
-#run-link.hide { display: none; }
-#try-link, #run-link {
+#run-link.hide, #repl-link.hide { display: none; }
+#try-bar a {
 	display: inline-block;
 	background: #37abc8;
 	color: #fff;
@@ -154,13 +154,13 @@ footer p { margin: auto; }
 	transition-duration: 0.3s;
 }
 
-#try-link:hover, #run-link:hover {
+#try-bar a:hover {
 	color: #37abc8;
 	background: #fff;
 }
 
 /* Try textareas {{{*/
-#try {
+#try, #repl {
 	display: none;
 	position: fixed;
 	top: 0;
@@ -204,14 +204,37 @@ footer p { margin: auto; }
 	margin-bottom: 0;
 }
 
-#try-input, #try-output {
+#repl-output-wrap {
+	position: absolute;
+	top: 10px;
+	left: 10px;
+	right: 10px;
+	bottom: 60px;
+	height: auto;
+	margin-bottom: 0;
+}
+
+#repl-input-wrap {
+	position: absolute;
+	bottom: 40px;
+	height: 20px;
+	width: 100%;
+}
+
+#repl-input {
+	background: rgba(0,0,0,0.5);
+	width: 95%;
+}
+
+#repl-output {
+	color: #def;
+}
+
+#try-input, #try-output, #repl-output {
 	background: #000;
 	background: rgba(0,0,0,0);
 	outline: none;
 	margin: 5px 0 20px;
-}
-
-#try-input, #try-output {
 	padding-left: 5px;
 	width: 95%;
 	height: 100%;
@@ -220,6 +243,7 @@ footer p { margin: auto; }
 	overflow-y: auto;
 }
 #try-input { color: #37abc8; }
+#repl-input, #repl-input-label { color: #37abc8; }
 
 #try-output-wrap {
 	left: 50%;
