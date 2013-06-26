@@ -21,23 +21,23 @@ let node-to-type = do
   }
   #(node)
     if DEBUG
-      require! LispyNode: './parser-lispynodes'
-      if node not instanceof LispyNode
-        throw TypeError("Expected a LispyNode, got $(typeof! node)")
+      require! ParserNode: './parser-nodes'
+      if node not instanceof ParserNode
+        throw TypeError("Expected a Node, got $(typeof! node)")
     switch node.node-type-id
-    case LispyNodeTypeId.Value
+    case ParserNodeTypeId.Value
       switch node.value
       case null; Type.null
       case void; Type.undefined
       default
         // shouldn't really occur
         Type.any
-    case LispyNodeTypeId.Symbol
+    case ParserNodeTypeId.Symbol
       if node.is-ident and ident-to-type ownskey node.name
         ident-to-type[node.name]
       else
         Type.any
-    case LispyNodeTypeId.Call
+    case ParserNodeTypeId.Call
       if node.is-internal-call()
         switch node.func.name
         case \type-union
@@ -95,8 +95,8 @@ let map-async(array, func, context, callback)
       array
 
 let add-param-to-scope(scope, param, force-mutable)!
-  require! LispyNode: './parser-lispynodes'
-  if DEBUG and param not instanceof LispyNode
+  require! ParserNode: './parser-nodes'
+  if DEBUG and param not instanceof ParserNode
     throw Error "Unknown param type: $(typeof! param)"
   if param.is-internal-call()
     if param.func.is-param
@@ -110,7 +110,7 @@ let add-param-to-scope(scope, param, force-mutable)!
         let [, child] = ident.args
         if not child.is-const-type(\string)
           throw Error "Expected constant access: $(typeof! child)"
-        scope.add LispyNode.Symbol.ident(param.index, param.scope, child.value), is-mutable, if as-type then node-to-type(as-type) else if is-spread then Type.array else Type.any
+        scope.add ParserNode.Symbol.ident(param.index, param.scope, child.value), is-mutable, if as-type then node-to-type(as-type) else if is-spread then Type.array else Type.any
       else
         throw Error "Unknown param ident: $(typeof! ident)"
     else if param.func.is-array

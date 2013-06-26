@@ -16,27 +16,27 @@ macro cache-get-or-add!(cache, key, value)
         $tmp
 
 
-const LispyNodeTypeId = {
+const ParserNodeTypeId = {
   Value:       0
   Symbol:      1
   Call:        2
   MacroAccess: 3
 }
 
-const LispyNodeSymbolTypeId = {
+const ParserNodeSymbolTypeId = {
   Internal: 0
   Ident:    1
   Tmp:      2
   Operator: 3
 }
 
-const LispyNodeOperatorTypeId = {
+const ParserNodeOperatorTypeId = {
   Binary: 0
   Unary:  1
   Assign: 2
 }
 
-const LispyNodeInternalId = {
+const ParserNodeInternalId = {
   Access:          0
   Array:           1
   AutoReturn:      2

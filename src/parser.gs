@@ -1,7 +1,7 @@
 import 'shared.gs'
 
-require! LispyNode: './parser-lispynodes'
-let {Value: LValue, Call: LCall, InternalCall: LInternalCall, Access: LAccess, Symbol: LSymbol} = LispyNode
+require! ParserNode: './parser-nodes'
+let {Value: LValue, Call: LCall, InternalCall: LInternalCall, Access: LAccess, Symbol: LSymbol} = ParserNode
 require! Scope: './parser-scope'
 require! MacroContext: './parser-macrocontext'
 require! MacroHolder: './parser-macroholder'
@@ -1977,8 +1977,8 @@ define ThisShorthandLiteral = with-space(AtSignChar) |> mutate #(, parser, index
 define ArgumentsLiteral = word("arguments") |> mutate #(, parser, index)
   LSymbol.ident index, parser.scope.peek(), \arguments
 
-define ThisOrShorthandLiteral = one-of<LispyNode.Symbol>(ThisLiteral, ThisShorthandLiteral)
-let ThisOrShorthandLiteralPeriod = one-of<LispyNode.Symbol>(
+define ThisOrShorthandLiteral = one-of<ParserNode.Symbol>(ThisLiteral, ThisShorthandLiteral)
+let ThisOrShorthandLiteralPeriod = one-of<ParserNode.Symbol>(
   sequential(
     [\this, ThisLiteral]
     Period)
@@ -2066,9 +2066,9 @@ let allow-space-before-access = make-alter-stack<Number>(\disallow-space-before-
 define ClosedArguments = sequential(
   OpenParenthesisChar
   Space
-  [\this, allow-space-before-access concat<LispyNode>(
+  [\this, allow-space-before-access concat<ParserNode>(
     maybe(sequential(
-      [\this, separated-list<LispyNode>(
+      [\this, separated-list<ParserNode>(
         SpreadOrExpression
         Comma)]
       MaybeComma), #-> [])
@@ -2077,7 +2077,7 @@ define ClosedArguments = sequential(
       MaybeAdvance
       [\this, maybe(sequential(
         CheckIndent
-        [\this, separated-list<LispyNode>(
+        [\this, separated-list<ParserNode>(
           SpreadOrExpression
           CommaOrSomeEmptyLinesWithCheckIndent)]), #-> [])]
       EmptyLines
@@ -2099,8 +2099,8 @@ define UnclosedArguments = disallow-space-before-access sequential(
       SpaceChar
       Space)
     check Newline)
-  [\this, concat<LispyNode>(
-    separated-list<LispyNode>(
+  [\this, concat<ParserNode>(
+    separated-list<ParserNode>(
       SpreadOrExpression
       Comma)
     one-of<Array>(
@@ -2111,7 +2111,7 @@ define UnclosedArguments = disallow-space-before-access sequential(
         [\this, retain-indent sequential(
           Advance
           CheckIndent
-          [\this, separated-list<LispyNode>(
+          [\this, separated-list<ParserNode>(
             SpreadOrExpression
             CommaOrSomeEmptyLinesWithCheckIndent)]
           MaybeComma
@@ -2400,7 +2400,7 @@ let double-string-literal-handler = #(parts, parser, index)
     string-parts.push LValue index, codes-to-string(current-literal)
   string-parts
 
-let concat-string(parser, index, parts as [LispyNode])
+let concat-string(parser, index, parts as [ParserNode])
   let len = parts.length
   if len == 0
     return LValue index, ""
@@ -2739,7 +2739,7 @@ define FunctionGlyph = sequential(
   Space
   MinusChar
   GreaterThanChar)
-let _FunctionBody = one-of<LispyNode>(
+let _FunctionBody = one-of<ParserNode>(
   sequential(
     FunctionGlyph
     [\this, one-of Statement, Nothing])
@@ -2945,7 +2945,7 @@ define ObjectKeyColon = sequential(
           return
     Box index)
 
-let mutate-function(node as LispyNode, parser, index)
+let mutate-function(node as ParserNode, parser, index)
   let mutate-function-macro = parser.get-macro-by-label \mutate-function
   if not mutate-function-macro
     node
@@ -3089,7 +3089,7 @@ let ParameterSequence = sequential(
   [\this, Parameters]
   EmptyLines
   CloseParenthesis) |> mutate do
-  let check-param(param as LispyNode, parser, names as [])!
+  let check-param(param as ParserNode, parser, names as [])!
     if param.is-internal-call()
       if param.func.is-param
         let ident = param.args[0]
@@ -3546,7 +3546,7 @@ let CustomBinaryOperator(parser, index)
 
 define Parenthetical = allow-space-before-access sequential(
   OpenParenthesis
-  [\this, one-of<LispyNode>(
+  [\this, one-of<ParserNode>(
     sequential(
       [\this, AssignmentAsExpression]
       CloseParenthesis)
@@ -3745,7 +3745,7 @@ define Ast = one-of(AstExpression, AstStatement) |> mutate #({position, body}, p
     throw ParserError "Unexpected position node in AST", parser, index
   MacroContext.constify-object position, body, index, parser.scope.peek()
 
-define PrimaryExpression = one-of<LispyNode>(
+define PrimaryExpression = one-of<ParserNode>(
   UnclosedObjectLiteral
   Literal
   ArrayLiteral
@@ -4119,7 +4119,7 @@ let BasicInvocationOrAccess = sequential(
       [\owns, MaybeExclamationPointChar]
       [\bind, MaybeAtSignChar]
       [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #(x, parser, index) -> { type: \this-access } <<< x
-    PrimaryExpression |> mutate #(node as LispyNode) -> { type: \normal, node })]
+    PrimaryExpression |> mutate #(node as ParserNode) -> { type: \normal, node })]
   [\tail, InvocationOrAccessParts]) |> mutate #({is-new, head, tail}, parser, index)
   convert-invocation-or-access is-new, {} <<< head, tail, parser, index
 
@@ -4131,7 +4131,7 @@ let _IdentifierOrAccess = sequential(
       [\owns, MaybeExclamationPointChar]
       [\bind, MaybeAtSignChar]
       [\child, IdentifierNameConstOrNumberLiteral]) |> mutate #(x, parser, index) -> { type: \this-access } <<< x
-    PrimaryExpression |> mutate #(node as LispyNode) -> { type: \normal, node })]
+    PrimaryExpression |> mutate #(node as ParserNode) -> { type: \normal, node })]
   [\tail, #(parser, index)
     let {value: mutable tail} = InvocationOrAccessParts(parser, index)
     tail := tail.slice()
@@ -4606,7 +4606,7 @@ let DefineConstLiteral = sequential(
   LSymbol.nothing index
 
 redefine Statement = sequential(
-  [\this, in-statement one-of<LispyNode>(
+  [\this, in-statement one-of<ParserNode>(
     LicenseComment
     DefineMacro
     DefineConstLiteral
@@ -4777,8 +4777,8 @@ define Line = do
     while true
       let mutable ret = EmbeddedLiteralText parser, current-index
       if ret
-        if DEBUG and ret.value not instanceof LispyNode
-          throw TypeError "Expected EmbeddedLiteralText to return a LispyNode, got $(typeof! ret.value)"
+        if DEBUG and ret.value not instanceof ParserNode
+          throw TypeError "Expected EmbeddedLiteralText to return a ParserNode, got $(typeof! ret.value)"
         need-semicolon := false
         parts.push ret.value
         current-index := ret.index
@@ -4788,8 +4788,8 @@ define Line = do
         else
           Statement parser, current-index
         if ret
-          if DEBUG and ret.value not instanceof LispyNode
-            throw TypeError "Expected $(if need-semicolon then 'Semicolons' else '')Statement to return a LispyNode, got $(typeof! ret.value)"
+          if DEBUG and ret.value not instanceof ParserNode
+            throw TypeError "Expected $(if need-semicolon then 'Semicolons' else '')Statement to return a ParserNode, got $(typeof! ret.value)"
           need-semicolon := true
           parts.push ret.value
           current-index := ret.index
@@ -4806,8 +4806,8 @@ let _Block-mutator(lines, parser, index)
   let nodes = []
   for item, i in lines
     for part, j in item
-      if DEBUG and part not instanceof LispyNode
-        throw TypeError "Expected lines[$i][$j] to be a LispyNode, got $(typeof! part)"
+      if DEBUG and part not instanceof ParserNode
+        throw TypeError "Expected lines[$i][$j] to be a ParserNode, got $(typeof! part)"
       else if part.is-internal-call(\block)
         nodes.push ...part.args
       else if not is-nothing(part)
@@ -4847,7 +4847,7 @@ let _Block = mutate _Block-mutator, separated-list(
 let Block = one-of(
   sequential(
     CheckIndent
-    [\this, one-of<LispyNode>(IndentedUnclosedObjectLiteralInner, IndentedUnclosedArrayLiteralInner)])
+    [\this, one-of<ParserNode>(IndentedUnclosedObjectLiteralInner, IndentedUnclosedArrayLiteralInner)])
   _Block)
 
 let EmbeddedBlock = sequential(
@@ -5094,7 +5094,7 @@ class Parser
     @cache := []
     @current-tmp-id := -1
   
-  def build-error(message as String, node as Number|LispyNode)
+  def build-error(message as String, node as Number|ParserNode)
     let index = if is-number! node
       node
     else
@@ -5245,7 +5245,7 @@ class Parser
       throw Error "Attempting to exit a macro when not in one"
     @current-macro := null
   
-  def define-helper(i, name as LSymbol.ident, value as LispyNode)!
+  def define-helper(i, name as LSymbol.ident, value as ParserNode)!
     // TODO: keep helpers in the parser and have the translator ask for them
     require! translator: './jstranslator'
     let node = @macro-expand-all(value).reduce(this)
@@ -5272,7 +5272,7 @@ class Parser
     "end": End
   
   let reduce-object(o, obj)
-    if obj instanceof LispyNode
+    if obj instanceof ParserNode
       obj.reduce(o)
     else if is-array! obj
       return for item in obj; reduce-object o, item
@@ -5306,7 +5306,7 @@ class Parser
       LValue index, false
       LValue index, false
   
-  let serialize-param-type(as-type as LispyNode)
+  let serialize-param-type(as-type as ParserNode)
     switch
     case as-type.is-symbol and as-type.is-ident
       [\ident, as-type.name]
@@ -5320,7 +5320,7 @@ class Parser
         [\choice, ...for choice in as-type.args; serialize-param-type(choice)]
       case \syntax-many
         [\many, as-type.args[1].const-value(), ...serialize-param-type(as-type.args[0])]
-  let serialize-params(params as [LispyNode])
+  let serialize-params(params as [ParserNode])
     simplify-array for param in params
       switch
       case param.is-const()
@@ -5381,7 +5381,7 @@ class Parser
         else
           throw Error "Unknown param type: $(String type)"
   
-  let calc-param(param as LispyNode)
+  let calc-param(param as ParserNode)
     switch
     case param.is-symbol and param.is-ident
       let name = param.name
@@ -5408,7 +5408,7 @@ class Parser
         case "+"; one-or-more calced
         case "?"; one-of calced, Nothing
   
-  let handle-params(params as [LispyNode])
+  let handle-params(params as [ParserNode])
     sequential ...for param in params
       switch
       case param.is-const-type(\string)
@@ -5516,7 +5516,7 @@ class Parser
                 LInternalCall \block, index, scope,
                   LInternalCall \var, index, scope,
                     param.args[0]
-                    LispyNode.Value index, true
+                    ParserNode.Value index, true
                   LCall index, scope,
                     LSymbol.assign["="] index
                     param.args[0]
@@ -5580,7 +5580,7 @@ class Parser
             LInternalCall \block, index, scope,
               LInternalCall \var, index, scope,
                 ident
-                LispyNode.Value index, true
+                ParserNode.Value index, true
               LCall index, scope,
                 LSymbol.assign["="] index
                 ident
@@ -5624,7 +5624,7 @@ class Parser
           LInternalCall \block, index, scope,
             LInternalCall \var, index, scope,
               ident
-              LispyNode.Value index, true
+              ParserNode.Value index, true
             LCall index, scope,
               LSymbol.assign["="] index
               ident
@@ -5678,7 +5678,7 @@ class Parser
           LInternalCall \block, index, scope,
             LInternalCall \var, index, scope,
               ident
-              LispyNode.Value index, true
+              ParserNode.Value index, true
             LCall index, scope,
               LSymbol.assign["="] index
               ident
@@ -5721,7 +5721,7 @@ class Parser
           LInternalCall \block, index, scope,
             LInternalCall \var, index, scope,
               ident
-              LispyNode.Value index, true
+              ParserNode.Value index, true
             LCall index, scope,
               LSymbol.assign["="] index
               ident
@@ -5865,7 +5865,7 @@ class Parser
     let macros = @macros
     let mutator = #(data, parser, index)
       if parser.in-ast.peek() or not parser.expanding-macros
-        LispyNode.MacroAccess index, parser.scope.peek(),
+        ParserNode.MacroAccess index, parser.scope.peek(),
           macro-id
           remove-noops(data)
           parser.position.peek() == \statement
@@ -5884,7 +5884,7 @@ class Parser
   let handle-macro-syntax(index, type, handler as Function, rule, params, options, mutable macro-id)
     let mutator = #(data, parser, index)
       if parser.in-ast.peek() or not parser.expanding-macros
-        LispyNode.MacroAccess index, parser.scope.peek(),
+        ParserNode.MacroAccess index, parser.scope.peek(),
           macro-id
           remove-noops(data)
           parser.position.peek() == \statement
@@ -5913,7 +5913,7 @@ class Parser
           else
             throw MacroError e, parser, index
         
-        if result instanceof LispyNode
+        if result instanceof ParserNode
           result := result.reduce(parser)
           let tmps = macro-context.get-tmps()
           if tmps.unsaved.length
@@ -5975,19 +5975,19 @@ class Parser
       @macros.add-macro-serialization serialization
   
   let BINARY_OPERATOR = {}
-  def define-binary-operator(index as Number, operators as [String], options as Object, body as LispyNode)
+  def define-binary-operator(index as Number, operators as [String], options as Object, body as ParserNode)
     @enter-macro index, BINARY_OPERATOR
     @macro-syntax index, \binary-operator, operators, options, body
     @exit-macro()
   
   let ASSIGN_OPERATOR = {}
-  def define-assign-operator(index as Number, operators as [String], options as Object, body as LispyNode)
+  def define-assign-operator(index as Number, operators as [String], options as Object, body as ParserNode)
     @enter-macro index, ASSIGN_OPERATOR
     @macro-syntax index, \assign-operator, operators, options, body
     @exit-macro()
   
   let UNARY_OPERATOR = {}
-  def define-unary-operator(index as Number, operators as [String], options as Object, body as LispyNode)
+  def define-unary-operator(index as Number, operators as [String], options as Object, body as ParserNode)
     @enter-macro index, UNARY_OPERATOR
     @macro-syntax index, \unary-operator, operators, options, body
     @exit-macro()
@@ -6027,9 +6027,9 @@ class Parser
   def macro-expand-1(mutable node)
     if node._macro-expanded?
       return node._macro-expanded
-    else if node instanceof LispyNode.MacroAccess
+    else if node instanceof ParserNode.MacroAccess
       let nodes = []
-      while node instanceof LispyNode.MacroAccess
+      while node instanceof ParserNode.MacroAccess
         nodes.push node
         @position.push if node.in-statement then \statement else \expression
         @in-generator.push node.in-generator
@@ -6077,7 +6077,7 @@ class Parser
     let walker = with-delay #(node, callback)
       if node._macro-expand-alled?
         callback null, node._macro-expand-alled
-      else if node not instanceof LispyNode.MacroAccess
+      else if node not instanceof ParserNode.MacroAccess
         async! callback, walked <- node.walk-async walker, this
         callback null, (walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked)
       else
@@ -6086,7 +6086,7 @@ class Parser
           expanded := @macro-expand-1 node
         catch e
           return callback e
-        if expanded not instanceof LispyNode
+        if expanded not instanceof ParserNode
           return callback null, (node._macro-expand-alled := node._macro-expanded := expanded)
         async! callback, walked <- walker@ this, expanded
         callback null, (expanded._macro-expand-alled := expanded._macro-expanded := walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked)
@@ -6098,12 +6098,12 @@ class Parser
   let macro-expand-all-walker(node)
     if node._macro-expand-alled?
       node._macro-expand-alled
-    else if node not instanceof LispyNode.MacroAccess
+    else if node not instanceof ParserNode.MacroAccess
       let walked = node.walk macro-expand-all-walker, this
       walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked
     else
       let expanded = @macro-expand-1 node
-      if expanded not instanceof LispyNode
+      if expanded not instanceof ParserNode
         return (node._macro-expand-alled := node._macro-expanded := expanded)
       let walked = macro-expand-all-walker@ this, expanded
       expanded._macro-expand-alled := expanded._macro-expanded := walked._macro-expand-alled := walked._macro-expanded := node._macro-expand-alled := node._macro-expanded := walked
@@ -6170,7 +6170,7 @@ let parse = promise! #(source as String, mutable macros as MacroHolder|null, opt
 module.exports := parse <<< {
   ParserError
   MacroError
-  Node: LispyNode
+  Node: ParserNode
   MacroHolder
   unused-caches
   deserialize-prelude: #(data)

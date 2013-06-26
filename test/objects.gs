@@ -56,10 +56,13 @@ describe "single-line objects", #
     expect(obj.key3).to.equal 3
 
   it "single-line, numeric keys", #
-    let obj = {1: "a", 2: "b", 3: "c"}
+    let obj = {1: "a", 2: "b", 3: "c", "-1": "d", 0: "e", "-0": "f"}
     expect(obj[1]).to.equal "a"
     expect(obj[2]).to.equal "b"
     expect(obj[3]).to.equal "c"
+    expect(obj[-1]).to.equal "d"
+    expect(obj[0]).to.equal "e"
+    expect(obj["-0"]).to.equal "f"
 
   it "single-line, numeric keys that aren't their string equivalents", #
     let obj = { "01234": "a", 1234: "b", 1e3: "c" }

@@ -43,37 +43,78 @@ describe "try-catch", #
       void
 
 describe "try-catch-else", #
-  describe "if an error occurs", #
-    it "goes to the catch body, not else body", #
-      let obj = {}
-      let in-catch = stub()
-      let in-else = stub()
-      
-      try
-        throw obj
-      catch e
-        expect(e).to.equal obj
-        in-catch()
-      else
-        in-else()
-      expect(in-catch).to.be.called-once
-      expect(in-else).to.not.be.called
-      
-  describe "if an error does not occur", #
-    it "goes to the else body, not catch body", #
-      let obj = {}
-      let ran = stub()
-      let in-catch = stub()
-      let in-else = stub()
+  describe "as a statement", #
+    describe "if an error occurs", #
+      it "goes to the catch body, not else body", #
+        let obj = {}
+        let in-catch = stub()
+        let in-else = stub()
+        
+        try
+          throw obj
+        catch e
+          expect(e).to.equal obj
+          in-catch()
+        else
+          in-else()
+        expect(in-catch).to.be.called-once
+        expect(in-else).to.not.be.called
+        
+    describe "if an error does not occur", #
+      it "goes to the else body, not catch body", #
+        let obj = {}
+        let ran = stub()
+        let in-catch = stub()
+        let in-else = stub()
 
-      try
-        ran()
-      catch e
-        in-catch()
-      else
-        in-else()
-      expect(in-catch).to.not.be.called
-      expect(in-else).to.be.called-once
+        try
+          ran()
+        catch e
+          in-catch()
+        else
+          in-else()
+        expect(in-catch).to.not.be.called
+        expect(in-else).to.be.called-once
+  /*
+  describe "as an expression", #
+    describe "if an error occurs", #
+      it "goes to the catch body, not else body", #
+        let obj = {}
+        let in-catch = stub()
+        let in-else = stub()
+        
+        let x = try
+          throw obj
+        catch e
+          expect(e).to.equal obj
+          in-catch()
+          \alpha
+        else
+          in-else()
+          \bravo
+        expect(in-catch).to.be.called-once
+        expect(in-else).to.not.be.called
+        expect(x).to.equal \alpha
+        
+    describe "if an error does not occur", #
+      it "goes to the else body, not catch body", #
+        let obj = {}
+        let ran = stub()
+        let in-catch = stub()
+        let in-else = stub()
+
+        let x = try
+          ran()
+        catch e
+          in-catch()
+          \alpha
+        else
+          in-else()
+          \bravo
+        expect(in-catch).to.not.be.called
+        expect(in-else).to.be.called-once
+        expect(x).to.equal \bravo
+  */
 
 describe "try-finally", #
   describe "if an error occurs", #

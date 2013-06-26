@@ -1870,7 +1870,7 @@ exports.Obj := class Obj extends Expression
     validate-unique-keys elements
   
   let to-safe-key(key)
-    if is-acceptable-ident(key) or String(Number(key)) == key
+    if is-acceptable-ident(key) or (String(Number(key)) == key and Number(key) >= 0)
       key
     else
       to-JS-source key

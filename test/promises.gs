@@ -449,6 +449,13 @@ describe "every-promise!", #
       alpha.reject \echo
       bravo.fulfill \foxtrot
 
+    it "succeeds immediately if array is empty", #(cb)!
+      (every-promise! [])
+        .then #(value)
+          expect(value).to.eql []
+          cb()
+        .then null, cb
+
   describe "with an object", #
     it "succeeds when the all promises are fulfilled", #(cb)!
       let alpha = __defer()
@@ -477,6 +484,13 @@ describe "every-promise!", #
   
       alpha.reject \echo
       bravo.fulfill \foxtrot
+
+    it "succeeds immediately if the object is empty", #(cb)!
+      (every-promise! {})
+        .then #(value)
+          expect(value).to.eql {}
+          cb()
+        .then null, cb
 
 describe "promisefor", #
   describe "in a range", #
@@ -548,30 +562,51 @@ describe "promisefor", #
         .then null, cb
   
 describe "delay!", #
-  it "works for time <= 0", #(cb)!
-    let alpha = delay! -1000_ms, \bravo
-    alpha
-      .then #(value)
-        expect(value).to.equal \bravo
-        cb()
-      .then null, cb
-  
-  it "waits at least the specified time before fulfilling", #(cb)!
-    let start = +new Date().get-time()
-    let alpha = delay! 200_ms, \bravo
-    alpha
-      .then #(value)
-        expect(value).to.equal \bravo
-        let elapsed = new Date().get-time()
-        expect(elapsed).to.be.at.least 200_ms
-        cb()
-      .then null, cb
-  
-  it "can be used with some-promise! as a timeout mechanism", #(cb)!
-    let never-finish = __defer().promise
-    let timeout = {}
-    (some-promise! [never-finish, delay!(50_ms, timeout)])
-      .then #(value)
-        expect(value).to.equal timeout
-        cb()
-      .then null, cb
+  describe "with a value", #
+    it "works for time <= 0", #(cb)!
+      let alpha = delay! -1000_ms, \bravo
+      alpha
+        .then #(value)
+          expect(value).to.equal \bravo
+          cb()
+        .then null, cb
+    
+    it "waits at least the specified time before fulfilling", #(cb)!
+      let start = +new Date().get-time()
+      let alpha = delay! 200_ms, \bravo
+      alpha
+        .then #(value)
+          expect(value).to.equal \bravo
+          let elapsed = new Date().get-time()
+          expect(elapsed).to.be.at.least 200_ms
+          cb()
+        .then null, cb
+    
+    it "can be used with some-promise! as a timeout mechanism", #(cb)!
+      let never-finish = __defer().promise
+      let timeout = {}
+      (some-promise! [never-finish, delay!(50_ms, timeout)])
+        .then #(value)
+          expect(value).to.equal timeout
+          cb()
+        .then null, cb
+
+  describe "without a value", #
+    it "works for time <= 0", #(cb)!
+      let alpha = delay! -1000_ms
+      alpha
+        .then #(value)
+          expect(value).to.equal void
+          cb()
+        .then null, cb
+    
+    it "waits at least the specified time before fulfilling", #(cb)!
+      let start = +new Date().get-time()
+      let alpha = delay! 200_ms
+      alpha
+        .then #(value)
+          expect(value).to.equal void
+          let elapsed = new Date().get-time()
+          expect(elapsed).to.be.at.least 200_ms
+          cb()
+        .then null, cb

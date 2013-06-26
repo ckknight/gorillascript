@@ -1,10 +1,10 @@
 import 'shared.gs'
 
 require! Type: './types'
-require! LispyNode: './parser-lispynodes'
+require! ParserNode: './parser-nodes'
 
-let Ident = LispyNode.Symbol.ident
-let Tmp = LispyNode.Symbol.tmp
+let Ident = ParserNode.Symbol.ident
+let Tmp = ParserNode.Symbol.tmp
 
 class ScopeDestroyedError extends Error
   def constructor(@message as String = "Scope already destroyed")
