@@ -797,7 +797,7 @@ let generator-translate = do
         if i == len - 1
           return generator-translate-expression subnode, scope, state, assign-to, unassigned
         else
-          state := generator-translate subnode, scope, state, null, null, unassigned
+          state := generator-translate subnode, scope, state, null, null, null, unassigned
       throw Error "Unreachable state"
 
     [ParserNodeInternalId.ContextCall]: #(node, args, scope, mutable state, assign-to, unassigned)
@@ -1057,35 +1057,44 @@ let generator-translate = do
     else
       true
   
+  const NEXT_NAMED_STATE = "\0"
   let generator-translate-lispy-internals = [] <<<
-    [ParserNodeInternalId.Block]: #(node, args, scope, state, break-state, continue-state, unassigned, is-top)
-      for reduce subnode, i, len in args, acc = state
-        generator-translate subnode, scope, acc, break-state, continue-state, unassigned, is-top
+    [ParserNodeInternalId.Block]: #(node, args, scope, state, break-state, continue-state, named-states, unassigned, is-top)
+      if named-states and named-states ownskey NEXT_NAMED_STATE
+        named-states[named-states[NEXT_NAMED_STATE]] := {
+          break: # end-state
+        }
+        delete named-states[NEXT_NAMED_STATE]
+      let end-state = for reduce subnode, i, len in args, acc = state
+        generator-translate subnode, scope, acc, break-state, continue-state, named-states, unassigned, is-top
+      end-state
     
-    [ParserNodeInternalId.Break]: #(node, args, scope, state, break-state)
-      if args[0]
-        throw Error "Not implemented: break with label in a generator"
+    [ParserNodeInternalId.Break]: #(node, args, scope, state, break-state, , named-states)
       if not break-state?
         throw Error "break found outside of a loop or switch"
-    
-      state.goto get-pos(node), break-state
+      
+      state.goto get-pos(node), if args[0]
+        named-states[args[0].name].break
+      else
+        break-state
       state
     
-    [ParserNodeInternalId.Continue]: #(node, args, scope, state, break-state, continue-state)
-      if args[0]
-        throw Error "Not implemented: continue with label in a generator"
+    [ParserNodeInternalId.Continue]: #(node, args, scope, state, , continue-state, named-states)
       if not continue-state?
         throw Error "continue found outside of a loop"
     
-      state.goto get-pos(node), continue-state
+      state.goto get-pos(node), if args[0]
+        named-states[args[0].name].continue
+      else
+        continue-state
       state
     
-    [ParserNodeInternalId.EmbedWrite]: #(node, args, scope, mutable state, break-state, continue-state, unassigned)
+    [ParserNodeInternalId.EmbedWrite]: #(node, args, scope, mutable state, break-state, continue-state, named-states, unassigned)
       let g-text = if is-expression args[0]
         generator-translate-expression args[0], scope, state, false, unassigned
       else
         {
-          state: generator-translate args[0], scope, state, break-state, continue-state, unassigned
+          state: generator-translate args[0], scope, state, break-state, continue-state, named-states, unassigned
           t-node: #-> ast.Noop get-pos(args[0])
           cleanup: #->
         }
@@ -1101,9 +1110,15 @@ let generator-translate = do
               [])
           ]
 
-    [ParserNodeInternalId.For]: #(node, args, scope, mutable state, , , unassigned)
+    [ParserNodeInternalId.For]: #(node, args, scope, mutable state, , , named-states, unassigned)
+      if named-states and named-states ownskey NEXT_NAMED_STATE
+        named-states[named-states[NEXT_NAMED_STATE]] := {
+          break: # post-branch
+          continue: # step-branch
+        }
+        delete named-states[NEXT_NAMED_STATE]
       if not is-nothing(args[0])
-        state := generator-translate args[0], scope, state, null, null, unassigned
+        state := generator-translate args[0], scope, state, null, null, named-states, unassigned
       state.goto get-pos(node), #-> test-branch
       
       let body-unassigned = unassigned and {[UNASSIGNED_TAINT_KEY]: true} <<< unassigned
@@ -1112,12 +1127,14 @@ let generator-translate = do
       test-branch.goto-if get-pos(args[1]), #-> first!(g-test.t-node(), g-test.cleanup()), #-> body-branch, #-> post-branch
       
       let body-branch = state.branch()
-      generator-translate(args[3], scope, body-branch, #-> post-branch, #-> step-branch, body-unassigned).goto get-pos(args[3]), #-> step-branch or test-branch
+      generator-translate(args[3], scope, body-branch, #-> post-branch, #-> step-branch, named-states, body-unassigned).goto get-pos(args[3]), #-> step-branch
       
       let mutable step-branch = null
       if not is-nothing(args[2])
         step-branch := state.branch()
-        generator-translate(args[2], scope, step-branch, null, null, body-unassigned).goto get-pos(args[2]), #-> test-branch
+        generator-translate(args[2], scope, step-branch, null, null, named-states, body-unassigned).goto get-pos(args[2]), #-> test-branch
+      else
+        step-branch := test-branch
       if unassigned
         for k, v of body-unassigned
           if not v
@@ -1126,7 +1143,13 @@ let generator-translate = do
       let post-branch = state.branch()
       post-branch
     
-    [ParserNodeInternalId.ForIn]: #(node, args, scope, mutable state, , , unassigned)
+    [ParserNodeInternalId.ForIn]: #(node, args, scope, mutable state, , , named-states, unassigned)
+      if named-states and named-states ownskey NEXT_NAMED_STATE
+        named-states[named-states[NEXT_NAMED_STATE]] := {
+          break: # post-branch
+          continue: # step-branch
+        }
+        delete named-states[NEXT_NAMED_STATE]
       let t-key = translate args[0], scope, \left-expression
       if unassigned and args[0].is-symbol and args[0].is-ident
         unassigned[args[0].name] := false
@@ -1158,7 +1181,7 @@ let generator-translate = do
       let body-branch = test-branch.branch()
       state := body-branch.add #-> ast.Assign get-pos(node), get-key(), ast.Access get-pos(node), keys, index
       let body-unassigned = {[UNASSIGNED_TAINT_KEY]: true} <<< unassigned
-      generator-translate(args[2], scope, state, #-> post-branch, #-> step-branch, body-unassigned).goto get-pos(args[2]), #-> step-branch
+      generator-translate(args[2], scope, state, #-> post-branch, #-> step-branch, named-states, body-unassigned).goto get-pos(args[2]), #-> step-branch
       
       let step-branch = body-branch.branch()
       step-branch.add(#-> ast.Unary get-pos(node), "++", index).goto get-pos(node), #-> test-branch
@@ -1171,7 +1194,12 @@ let generator-translate = do
       let post-branch = step-branch.branch()
       post-branch
 
-    [ParserNodeInternalId.If]: #(node, args, scope, mutable state, break-state, continue-state, unassigned)
+    [ParserNodeInternalId.If]: #(node, args, scope, mutable state, break-state, continue-state, named-states, unassigned)
+      if named-states and named-states ownskey NEXT_NAMED_STATE
+        named-states[named-states[NEXT_NAMED_STATE]] := {
+          break: # post-branch
+        }
+        delete named-states[NEXT_NAMED_STATE]
       let test = generator-translate-expression args[0], scope, state, state.has-generator-node(args[0])
       state := test.state
       
@@ -1180,10 +1208,10 @@ let generator-translate = do
         state.goto-if get-pos(node), #-> first!(test.t-node(), test.cleanup()), #-> when-true-branch or post-branch, #-> when-false-branch or post-branch
         let when-true-branch = if not is-nothing(args[1]) then state.branch()
         if when-true-branch
-          generator-translate(args[1], scope, when-true-branch, break-state, continue-state, unassigned).goto get-pos(args[1]), #-> post-branch
+          generator-translate(args[1], scope, when-true-branch, break-state, continue-state, named-states, unassigned).goto get-pos(args[1]), #-> post-branch
         let when-false-branch = if not is-nothing(args[2]) then state.branch()
         if when-false-branch
-          generator-translate(args[2], scope, when-false-branch, break-state, continue-state, when-false-unassigned).goto get-pos(args[2]), #-> post-branch
+          generator-translate(args[2], scope, when-false-branch, break-state, continue-state, named-states, when-false-unassigned).goto get-pos(args[2]), #-> post-branch
         let post-branch = state.branch()
         post-branch
       else
@@ -1198,8 +1226,13 @@ let generator-translate = do
           if not v
             unassigned[k] := false
       ret
+
+    [ParserNodeInternalId.Label]: #(node, args, scope, state, break-state, continue-state, mutable named-states, unassigned, is-top)
+      named-states or= {}
+      named-states[NEXT_NAMED_STATE] := args[0].name
+      generator-translate-lispy args[1], scope, state, break-state, continue-state, named-states, unassigned, is-top
     
-    [ParserNodeInternalId.Return]: #(node, args, scope, mutable state, break-state, continue-state, unassigned, is-top)
+    [ParserNodeInternalId.Return]: #(node, args, scope, mutable state, break-state, continue-state, named-states, unassigned, is-top)
       let mutated-node = args[0].mutate-last null, (#(n)
         if n.is-internal-call(\return)
           n
@@ -1217,11 +1250,16 @@ let generator-translate = do
             g-node.cleanup())
           state
         else
-          generator-translate args[0], scope, state, break-state, continue-state, unassigned, is-top
+          generator-translate args[0], scope, state, break-state, continue-state, named-states, unassigned, is-top
       else
-        generator-translate mutated-node, scope, state, break-state, continue-state, unassigned, is-top
+        generator-translate mutated-node, scope, state, break-state, continue-state, named-states, unassigned, is-top
 
-    [ParserNodeInternalId.Switch]: #(node, args, scope, state, , continue-state, unassigned)
+    [ParserNodeInternalId.Switch]: #(node, args, scope, state, , continue-state, named-states, unassigned)
+      if named-states and named-states ownskey NEXT_NAMED_STATE
+        named-states[named-states[NEXT_NAMED_STATE]] := {
+          break: # post-branch
+        }
+        delete named-states[NEXT_NAMED_STATE]
       let data = parse-switch(args)
       let g-topic = generator-translate-expression data.topic, scope, state, false // TODO: should this be true?
       let body-states = []
@@ -1239,7 +1277,7 @@ let generator-translate = do
         let t-case-node = translate case_.node, scope, \expression, current-unassigned
         let case-branch = g-topic.state.branch()
         body-states[i] := case-branch
-        let g-case-body = generator-translate case_.body, scope, case-branch, #-> post-branch, continue-state, current-unassigned
+        let g-case-body = generator-translate case_.body, scope, case-branch, #-> post-branch, continue-state, named-states, current-unassigned
         g-case-body.goto get-pos(case_.node), if case_.fallthrough.const-value()
           #-> body-states[i + 1] or post-branch
         else
@@ -1256,7 +1294,7 @@ let generator-translate = do
           current-unassigned := {} <<< base-unassigned
       let default-case = if not is-nothing(data.default-case)
         let default-branch = g-topic.state.branch()
-        let g-default-body = generator-translate data.default-case, scope, default-branch, #-> post-branch, continue-state, current-unassigned
+        let g-default-body = generator-translate data.default-case, scope, default-branch, #-> post-branch, continue-state, named-states, current-unassigned
         g-default-body.goto get-pos(data.default-case), #-> post-branch
         default-branch.make-goto get-pos(data.default-case), #-> default-branch
       else
@@ -1271,27 +1309,38 @@ let generator-translate = do
       let g-node = generator-translate-expression args[0], scope, state, false
       g-node.state.add #-> ast.Throw get-pos(node), first!(g-node.t-node(), g-node.cleanup())
     
-    [ParserNodeInternalId.TmpWrapper]: #(node, args, scope, state, break-state, continue-state, unassigned, is-top)
-      let result = generator-translate args[0], scope, state, break-state, continue-state, unassigned, is-top
+    [ParserNodeInternalId.TmpWrapper]: #(node, args, scope, state, break-state, continue-state, named-states, unassigned, is-top)
+      let result = generator-translate args[0], scope, state, break-state, continue-state, named-states, unassigned, is-top
       for tmp in args[1 to -1]
         scope.release-tmp tmp.const-value()
       result
 
-    [ParserNodeInternalId.TryCatch]: #(node, args, scope, mutable state, break-state, continue-state, unassigned, is-top)
+    [ParserNodeInternalId.TryCatch]: #(node, args, scope, mutable state, break-state, continue-state, named-states, unassigned, is-top)
+      if named-states and named-states ownskey NEXT_NAMED_STATE
+        named-states[named-states[NEXT_NAMED_STATE]] := {
+          break: # post-branch
+        }
+        delete named-states[NEXT_NAMED_STATE]
       state := state.enter-try-catch get-pos(node)
-      state := generator-translate args[0], scope, state, break-state, continue-state, unassigned
+      state := generator-translate args[0], scope, state, break-state, continue-state, named-states, unassigned
       state := state.exit-try-catch get-pos(args[0]), (translate args[1], scope, \left-expression), #-> post-branch
-      state := generator-translate args[2], scope, state, break-state, continue-state, unassigned
+      state := generator-translate args[2], scope, state, break-state, continue-state, named-states, unassigned
       state.goto get-pos(node), #-> post-branch
       let post-branch = state.branch()
       post-branch
 
-    [ParserNodeInternalId.TryFinally]: #(node, args, scope, mutable state, break-state, continue-state, unassigned, is-top)
+    [ParserNodeInternalId.TryFinally]: #(node, args, scope, mutable state, break-state, continue-state, named-states, unassigned, is-top)
+      if named-states and named-states ownskey NEXT_NAMED_STATE
+        named-states[named-states[NEXT_NAMED_STATE]] := {
+          break: # post-branch
+        }
+        delete named-states[NEXT_NAMED_STATE]
+
       if state.has-generator-node args[1]
         throw Error "Cannot use yield in a finally"
       
       state := state.pending-finally get-pos(node), #-> t-finally()
-      state := generator-translate args[0], scope, state, break-state, continue-state, unassigned
+      state := generator-translate args[0], scope, state, break-state, continue-state, named-states, unassigned
       let t-finally = translate args[1], scope, \statement, unassigned
       state.run-pending-finally get-pos(node)
 
@@ -1301,19 +1350,19 @@ let generator-translate = do
         g-node.t-node()
         g-node.cleanup())
   
-  let generator-translate-lispy(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
+  let generator-translate-lispy(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, named-states, unassigned, is-top)
     if node.is-internal-call()
       let internal-id = node.func.internal-id
       if generator-translate-lispy-internals[internal-id]
-        return generator-translate-lispy-internals[internal-id] node, node.args, scope, state, break-state, continue-state, unassigned, is-top
+        return generator-translate-lispy-internals[internal-id] node, node.args, scope, state, break-state, continue-state, named-states, unassigned, is-top
     let ret = generator-translate-expression-lispy(node, scope, state, false, unassigned)
     ret.state.add #-> first!(
       ret.t-node()
       ret.cleanup())
   
-  #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, unassigned, is-top)
+  #(node as ParserNode, scope as Scope, state as GeneratorState, break-state, continue-state, named-states, unassigned, is-top)
     if state.has-generator-node node
-      generator-translate-lispy(node, scope, state, break-state, continue-state, unassigned, is-top)
+      generator-translate-lispy(node, scope, state, break-state, continue-state, named-states, unassigned, is-top)
     else
       state.add translate node, scope, if is-top then \top-statement else \statement, unassigned
 
@@ -2047,7 +2096,7 @@ let translate-function-body(pos, is-generator, scope, body, unassigned = {})
     is-simple-generator := not has-generator-node(body, true)
     if not is-simple-generator
       let builder = GeneratorBuilder pos, scope, has-generator-node
-      generator-translate(body, scope, builder.start, null, null, unassigned, true).goto(pos, #-> builder.stop)
+      generator-translate(body, scope, builder.start, null, null, null, unassigned, true).goto(pos, #-> builder.stop)
       let translated-body = builder.create()
       if pos.file
         translated-body.pos.file or= pos.file

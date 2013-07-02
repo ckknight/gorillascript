@@ -144,6 +144,35 @@ describe "yield with while and break", #
   it "yields expected items", #
     expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 5, 10]
 
+describe "yield with labeled while and break", #
+  let fun()*
+    yield 0
+    let mutable i = 1
+    label! blah while i < 10
+      if i > 5
+        break blah
+      yield i
+      i += 1
+    yield 10
+  
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 5, 10]
+
+describe "yield with labeled while and break with nested while", #
+  let fun()*
+    yield 0
+    let mutable i = 1
+    label! blah while true
+      while i < 10
+        if i > 5
+          break blah
+        yield i
+        i += 1
+    yield 10
+  
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 5, 10]
+
 describe "yield with while and break that has no inner yields", #
   let fun(value)*
     yield 0
@@ -170,6 +199,34 @@ describe "yield with while and increment and continue", #
   
   it "yields expected items", #
     expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 7, 8, 9, 10]
+
+describe "yield with labeled while and increment and continue", #
+  let fun()*
+    yield 0
+    let mutable i = 1
+    label! blah while i < 10, i += 1
+      if i == 5
+        i := 6
+        continue blah
+      yield i
+    yield 10
+  
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 2, 3, 4, 7, 8, 9, 10]
+
+describe "yield with labeled while and increment and continue with nested while", #
+  let fun()*
+    yield 0
+    let mutable i = 1
+    label! blah while i < 10, i += 1
+      while i < 10, i += 2
+        if i == 5
+          continue blah
+        yield i
+    yield 10
+  
+  it "yields expected items", #
+    expect(to-array fun()).to.eql [0, 1, 3, 6, 8, 10]
 
 describe "yield with for-in", #
   let fun(arr)*

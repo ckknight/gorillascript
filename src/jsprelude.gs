@@ -664,6 +664,7 @@ macro first!(head)
       $tail
       $tmp
   else
+    tail.push ASTE void
     AST __first($head, $tail)
 
 macro last!()

@@ -274,3 +274,7 @@ describe "new call", #
       expect(new Date(...date-values)).to.be.an.instanceof(Date)
       date-values.push 22
       expect(new Date(...date-values)).to.be.an.instanceof(Date)
+
+      let normal-date = new Date()
+      let args = [normal-date.get-time()]
+      expect(new Date(...args).get-time()).to.equal normal-date.get-time()
