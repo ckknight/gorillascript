@@ -455,7 +455,7 @@ let f() Math.random()
 console.log f()
 </code></pre>
 
-    <p>The outer <code class="language-gorillascript">this</code> can also be captured be appending <code class="language-gorillascript">@</code> to the head of the function declaration, creating a &#8220;bound&#8221; function. This is similar to ECMAScript 5&#8217;s <code class="language-gorillascript">Function.prototype.bind</code>, but more efficient since a hidden <code class="language-gorillascript">_this</code> variable is used rather than an extra function call.</p>
+    <p>The outer <code class="language-gorillascript">this</code> can also be captured by appending <code class="language-gorillascript">@</code> to the head of the function declaration, creating a &#8220;bound&#8221; function. This is similar to ECMAScript 5&#8217;s <code class="language-gorillascript">Function.prototype.bind</code>, but more efficient since a hidden <code class="language-gorillascript">_this</code> variable is used rather than an extra function call.</p>
 
     <pre class="gs-code"><code class="language-gorillascript">let func()
   let inner()@
