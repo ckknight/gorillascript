@@ -209,13 +209,13 @@ new Date().getTime() + 1 == 1359519958072 // or some other number
 
     <p>As can be seen, the operators which don&#8217;t fit the proper types exactly fail immediately, allowing one to catch bugs as early as possible rather than allowing them to permeate through one&#8217;s programs.</p>
 
-    <p>Don&#8217;t be worried about losing the bitwise and operator, that is now called <code class="language-gorillascript">bitand</code>.</p>
+    <p>Don&#8217;t worry about losing the bitwise and operator <code class="language-gorillascript">&</code>. It is now called <code class="language-gorillascript">bitand</code>.</p>
   </section>
   
   <section id="strict-mode-by-default">
     <h2>Strict mode by default</h2>
 
-    <p>All GorillaScript code is wrapped in an immediately-invoked function expression (IIFE) which has the declaration of <code class="language-javascript">"use strict"</code>. This ensures that on the engines that support it, strict semantics will be followed, meaning less bugs in the long run.</p>
+    <p>All GorillaScript code is wrapped in an immediately-invoked function expression (IIFE) which has the declaration of <code class="language-javascript">"use strict"</code>. This ensures that on the engines that support it, strict semantics will be followed, meaning fewer bugs in the long run.</p>
   </section>
   
   <section id="type-safety-of-operators">
@@ -305,7 +305,7 @@ print FRUIT_TYPES.cherry // 3
 // print FRUIT_TYPES.date // would error if uncommented
 </code></pre>
 
-    <p>You don't have to use numbers as the values, in fact, you can use it as a way to compile-time check constant string values:</p>
+    <p>You don't have to use numbers as the values. In fact, you can use it as a way to compile-time check constant string values:</p>
     
     <pre class="gs-code"><code class="language-gorillascript">const FRUIT_TYPES = {
   "apple"
