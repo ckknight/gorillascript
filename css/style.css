@@ -58,7 +58,7 @@ footer {
   color: #fff;
   padding: 0.5em 11%;
 }
-footer p { margin: auto; }
+footer p { margin: auto 35px; }
 /*}}}*/
 
 /* TOC {{{*/
