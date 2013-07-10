@@ -5,8 +5,8 @@ if window?
   GorillaScript.load := #(url as String, callback as ->)
     let xhr = if window.ActiveXObject
       new window.ActiveXObject("Microsoft.XMLHTTP")
-    else if XMLHttpRequest
-      new XMLHttpRequest()
+    else if window.XMLHttpRequest
+      new window.XMLHttpRequest()
     else
       throw Error "Unable to create XMLHttpRequest"
     
