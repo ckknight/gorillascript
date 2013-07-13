@@ -244,21 +244,25 @@
           }
         };
         __toPromise = function (func, context, args) {
-          var d;
+          var _ref, fulfill, promise, reject;
           if (typeof func !== "function") {
             throw new TypeError("Expected func to be a Function, got " + __typeof(func));
           }
-          d = __defer();
+          _ref = __defer();
+          promise = _ref.promise;
+          reject = _ref.reject;
+          fulfill = _ref.fulfill;
+          _ref = null;
           func.apply(context, __toArray(args).concat([
             function (err, value) {
               if (err != null) {
-                d.reject(err);
+                reject(err);
               } else {
-                d.fulfill(value);
+                fulfill(value);
               }
             }
           ]));
-          return d.promise;
+          return promise;
         };
         __typeof = (function () {
           var _toString;
@@ -8985,21 +8989,25 @@
           }
         };
         __toPromise = function (func, context, args) {
-          var d;
+          var _ref, fulfill, promise, reject;
           if (typeof func !== "function") {
             throw new TypeError("Expected func to be a Function, got " + __typeof(func));
           }
-          d = __defer();
+          _ref = __defer();
+          promise = _ref.promise;
+          reject = _ref.reject;
+          fulfill = _ref.fulfill;
+          _ref = null;
           func.apply(context, __toArray(args).concat([
             function (err, value) {
               if (err != null) {
-                d.reject(err);
+                reject(err);
               } else {
-                d.fulfill(value);
+                fulfill(value);
               }
             }
           ]));
-          return d.promise;
+          return promise;
         };
         __typeof = (function () {
           var _toString;
@@ -19038,6 +19046,9 @@
           _Node_prototype.isAssignCall = function () {
             return false;
           };
+          _Node_prototype.isNormalCall = function () {
+            return false;
+          };
           _Node_prototype.doWrapArgs = true;
           _Node_prototype.convertNothing = function () {
             return this;
@@ -24662,9 +24673,29 @@
                 _value = cache.get(node);
                 if (_value === void 0) {
                   _value = (function () {
-                    var expandedNode, FOUND;
+                    var _arr, _i, _len, _some, arg, expandedNode, FOUND;
                     if (node.isInternalCall("function")) {
                       return true;
+                    } else if (node.isNormalCall() && node.func.isInternalCall("function")) {
+                      _some = false;
+                      for (_arr = __toArray(node.func.args).concat(__toArray(node.args)), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+                        arg = _arr[_i];
+                        if (_this.hasFunc(arg)) {
+                          _some = true;
+                          break;
+                        }
+                      }
+                      return _some;
+                    } else if (node.isInternalCall("contextCall") && node.args[0].isInternalCall("function") && node.args[1].isIdent && node.args[1].name === "this") {
+                      _some = false;
+                      for (_arr = __toArray(node.args[0].args).concat(__toArray(__slice.call(node.args, 2))), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+                        arg = _arr[_i];
+                        if (_this.hasFunc(arg)) {
+                          _some = true;
+                          break;
+                        }
+                      }
+                      return _some;
                     } else {
                       expandedNode = _this.macroExpand1(node);
                       if (expandedNode !== node) {
@@ -28640,7 +28671,7 @@
           var primitiveTypes, translateType;
           primitiveTypes = { Boolean: "boolean", String: "string", Number: "number", Function: "function" };
           function translateTypeCheck(node) {
-            var _arr, _end, _f, _i, _len, i, result, typeData;
+            var _arr, _end, _i, _len, i, result, type, typeData;
             switch (node.nodeTypeId) {
             case 1:
               switch (node.symbolTypeId) {
@@ -28668,8 +28699,9 @@
               case "access": return Type.any;
               case "typeUnion":
                 result = Type.none;
-                for (_arr = __toArray(node.types), _i = 0, _len = _arr.length, _f = function (type) {
-                  return result = result.union(type.isConst()
+                for (_arr = __toArray(node.types), _i = 0, _len = _arr.length; _i < _len; ++_i) {
+                  type = _arr[_i];
+                  result = result.union(type.isConst()
                     ? (function () {
                       switch (type.constValue()) {
                       case null: return Type["null"];
@@ -28680,8 +28712,6 @@
                     : type instanceof ParserNode.Symbol.ident
                     ? (__owns.call(primitiveTypes, type.name) ? Type[primitiveTypes[type.name]] : Type.any)
                     : __throw(new Error("Not implemented: typechecking for non-idents/consts within a type-union")));
-                }; _i < _len; ++_i) {
-                  _f.call(this, _arr[_i]);
                 }
                 return result;
               case "typeGeneric":
@@ -30206,21 +30236,25 @@
           }
         };
         __toPromise = function (func, context, args) {
-          var d;
+          var _ref, fulfill, promise, reject;
           if (typeof func !== "function") {
             throw new TypeError("Expected func to be a Function, got " + __typeof(func));
           }
-          d = __defer();
+          _ref = __defer();
+          promise = _ref.promise;
+          reject = _ref.reject;
+          fulfill = _ref.fulfill;
+          _ref = null;
           func.apply(context, __toArray(args).concat([
             function (err, value) {
               if (err != null) {
-                d.reject(err);
+                reject(err);
               } else {
-                d.fulfill(value);
+                fulfill(value);
               }
             }
           ]));
-          return d.promise;
+          return promise;
         };
         __typeof = (function () {
           var _toString;
@@ -30281,7 +30315,7 @@
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         _ref = null;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.9.6";
+        exports.version = "0.9.7";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {
@@ -31873,8 +31907,8 @@
             }
             if (window.ActiveXObject) {
               xhr = new (window.ActiveXObject)("Microsoft.XMLHTTP");
-            } else if (XMLHttpRequest) {
-              xhr = new XMLHttpRequest();
+            } else if (window.XMLHttpRequest) {
+              xhr = new (window.XMLHttpRequest)();
             } else {
               throw new Error("Unable to create XMLHttpRequest");
             }
@@ -63358,7 +63392,7 @@
                   "args"
                 )
               ],
-              ["d"],
+              ["_ref", "fulfill", "promise", "reject"],
               AST$(
                 4,
                 3934,
@@ -63462,26 +63496,153 @@
                   AST$(
                     17,
                     3934,
-                    6,
+                    1,
                     0,
-                    "d"
+                    "_ref"
                   ),
                   "=",
                   AST$(
                     7,
                     3934,
-                    10,
+                    35,
                     0,
                     AST$(
                       17,
                       3934,
-                      10,
+                      35,
                       0,
                       "__defer"
                     ),
                     0
                   )
                 ),
+                AST$(
+                  3,
+                  3934,
+                  1,
+                  0,
+                  AST$(
+                    17,
+                    3934,
+                    8,
+                    0,
+                    "promise"
+                  ),
+                  "=",
+                  AST$(
+                    3,
+                    3934,
+                    1,
+                    0,
+                    AST$(
+                      17,
+                      3934,
+                      1,
+                      0,
+                      "_ref"
+                    ),
+                    ".",
+                    AST$(
+                      9,
+                      3934,
+                      1,
+                      0,
+                      "promise"
+                    )
+                  )
+                ),
+                AST$(
+                  3,
+                  3934,
+                  1,
+                  0,
+                  AST$(
+                    17,
+                    3934,
+                    16,
+                    0,
+                    "reject"
+                  ),
+                  "=",
+                  AST$(
+                    3,
+                    3934,
+                    1,
+                    0,
+                    AST$(
+                      17,
+                      3934,
+                      1,
+                      0,
+                      "_ref"
+                    ),
+                    ".",
+                    AST$(
+                      9,
+                      3934,
+                      1,
+                      0,
+                      "reject"
+                    )
+                  )
+                ),
+                AST$(
+                  3,
+                  3934,
+                  1,
+                  0,
+                  AST$(
+                    17,
+                    3934,
+                    24,
+                    0,
+                    "fulfill"
+                  ),
+                  "=",
+                  AST$(
+                    3,
+                    3934,
+                    1,
+                    0,
+                    AST$(
+                      17,
+                      3934,
+                      1,
+                      0,
+                      "_ref"
+                    ),
+                    ".",
+                    AST$(
+                      9,
+                      3934,
+                      1,
+                      0,
+                      "fulfill"
+                    )
+                  )
+                ),
+                AST$(
+                  3,
+                  3934,
+                  1,
+                  0,
+                  AST$(
+                    17,
+                    3934,
+                    1,
+                    0,
+                    "_ref"
+                  ),
+                  "=",
+                  AST$(
+                    9,
+                    0,
+                    0,
+                    0,
+                    null
+                  )
+                ),
+                AST$(9, 0, 0, 0),
                 AST$(
                   7,
                   3935,
@@ -63617,31 +63778,17 @@
                             1,
                             0,
                             AST$(
-                              3,
+                              17,
                               3937,
                               1,
                               0,
-                              AST$(
-                                17,
-                                3937,
-                                1,
-                                0,
-                                "d"
-                              ),
-                              ".",
-                              AST$(
-                                9,
-                                3937,
-                                9,
-                                0,
-                                "reject"
-                              )
+                              "reject"
                             ),
                             0,
                             AST$(
                               17,
                               3937,
-                              16,
+                              14,
                               0,
                               "err"
                             )
@@ -63652,31 +63799,17 @@
                             1,
                             0,
                             AST$(
-                              3,
+                              17,
                               3939,
                               1,
                               0,
-                              AST$(
-                                17,
-                                3939,
-                                1,
-                                0,
-                                "d"
-                              ),
-                              ".",
-                              AST$(
-                                9,
-                                3939,
-                                9,
-                                0,
-                                "fulfill"
-                              )
+                              "fulfill"
                             ),
                             0,
                             AST$(
                               17,
                               3939,
-                              17,
+                              15,
                               0,
                               "value"
                             )
@@ -63692,25 +63825,11 @@
                   1,
                   0,
                   AST$(
-                    3,
+                    17,
                     3940,
                     1,
                     0,
-                    AST$(
-                      17,
-                      3940,
-                      1,
-                      0,
-                      "d"
-                    ),
-                    ".",
-                    AST$(
-                      9,
-                      3940,
-                      5,
-                      0,
-                      "promise"
-                    )
+                    "promise"
                   )
                 )
               )
@@ -63718,17 +63837,541 @@
             type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({ sync: TYPE$["function"], then: TYPE$["function"] })),
             dependencies: ["__defer", "__toArray", "__typeof"]
           },
-          __generator: {
+          __toPromiseArray: {
             helper: AST$(
               16,
-              3972,
-              29,
+              3973,
+              1,
               0,
               0,
               [
                 AST$(
                   17,
                   3972,
+                  37,
+                  0,
+                  "func"
+                ),
+                AST$(
+                  17,
+                  3972,
+                  48,
+                  0,
+                  "context"
+                ),
+                AST$(
+                  17,
+                  3972,
+                  57,
+                  0,
+                  "args"
+                )
+              ],
+              ["_ref", "fulfill", "promise", "reject"],
+              AST$(
+                4,
+                3973,
+                1,
+                0,
+                0,
+                AST$(
+                  18,
+                  3972,
+                  37,
+                  0,
+                  AST$(
+                    3,
+                    3972,
+                    37,
+                    0,
+                    AST$(
+                      30,
+                      3972,
+                      37,
+                      0,
+                      "typeof",
+                      AST$(
+                        17,
+                        3972,
+                        37,
+                        0,
+                        "func"
+                      )
+                    ),
+                    "!==",
+                    AST$(
+                      9,
+                      3972,
+                      37,
+                      0,
+                      "function"
+                    )
+                  ),
+                  AST$(
+                    26,
+                    3972,
+                    37,
+                    0,
+                    AST$(
+                      7,
+                      3972,
+                      37,
+                      0,
+                      AST$(
+                        17,
+                        3972,
+                        37,
+                        0,
+                        "TypeError"
+                      ),
+                      1,
+                      AST$(
+                        3,
+                        3972,
+                        37,
+                        0,
+                        AST$(
+                          9,
+                          3972,
+                          37,
+                          0,
+                          "Expected func to be a Function, got "
+                        ),
+                        "+",
+                        AST$(
+                          7,
+                          3972,
+                          37,
+                          0,
+                          AST$(
+                            17,
+                            3972,
+                            37,
+                            0,
+                            "__typeof"
+                          ),
+                          0,
+                          AST$(
+                            17,
+                            3972,
+                            37,
+                            0,
+                            "func"
+                          )
+                        )
+                      )
+                    )
+                  )
+                ),
+                AST$(
+                  3,
+                  3973,
+                  1,
+                  0,
+                  AST$(
+                    17,
+                    3973,
+                    1,
+                    0,
+                    "_ref"
+                  ),
+                  "=",
+                  AST$(
+                    7,
+                    3973,
+                    35,
+                    0,
+                    AST$(
+                      17,
+                      3973,
+                      35,
+                      0,
+                      "__defer"
+                    ),
+                    0
+                  )
+                ),
+                AST$(
+                  3,
+                  3973,
+                  1,
+                  0,
+                  AST$(
+                    17,
+                    3973,
+                    8,
+                    0,
+                    "promise"
+                  ),
+                  "=",
+                  AST$(
+                    3,
+                    3973,
+                    1,
+                    0,
+                    AST$(
+                      17,
+                      3973,
+                      1,
+                      0,
+                      "_ref"
+                    ),
+                    ".",
+                    AST$(
+                      9,
+                      3973,
+                      1,
+                      0,
+                      "promise"
+                    )
+                  )
+                ),
+                AST$(
+                  3,
+                  3973,
+                  1,
+                  0,
+                  AST$(
+                    17,
+                    3973,
+                    16,
+                    0,
+                    "reject"
+                  ),
+                  "=",
+                  AST$(
+                    3,
+                    3973,
+                    1,
+                    0,
+                    AST$(
+                      17,
+                      3973,
+                      1,
+                      0,
+                      "_ref"
+                    ),
+                    ".",
+                    AST$(
+                      9,
+                      3973,
+                      1,
+                      0,
+                      "reject"
+                    )
+                  )
+                ),
+                AST$(
+                  3,
+                  3973,
+                  1,
+                  0,
+                  AST$(
+                    17,
+                    3973,
+                    24,
+                    0,
+                    "fulfill"
+                  ),
+                  "=",
+                  AST$(
+                    3,
+                    3973,
+                    1,
+                    0,
+                    AST$(
+                      17,
+                      3973,
+                      1,
+                      0,
+                      "_ref"
+                    ),
+                    ".",
+                    AST$(
+                      9,
+                      3973,
+                      1,
+                      0,
+                      "fulfill"
+                    )
+                  )
+                ),
+                AST$(
+                  3,
+                  3973,
+                  1,
+                  0,
+                  AST$(
+                    17,
+                    3973,
+                    1,
+                    0,
+                    "_ref"
+                  ),
+                  "=",
+                  AST$(
+                    9,
+                    0,
+                    0,
+                    0,
+                    null
+                  )
+                ),
+                AST$(9, 0, 0, 0),
+                AST$(
+                  7,
+                  3974,
+                  1,
+                  0,
+                  AST$(
+                    3,
+                    3974,
+                    1,
+                    0,
+                    AST$(
+                      17,
+                      3974,
+                      1,
+                      0,
+                      "func"
+                    ),
+                    ".",
+                    AST$(
+                      9,
+                      3974,
+                      1,
+                      0,
+                      "apply"
+                    )
+                  ),
+                  0,
+                  AST$(
+                    17,
+                    3974,
+                    9,
+                    0,
+                    "context"
+                  ),
+                  AST$(
+                    7,
+                    3974,
+                    1,
+                    0,
+                    AST$(
+                      3,
+                      3974,
+                      1,
+                      0,
+                      AST$(
+                        7,
+                        3974,
+                        21,
+                        0,
+                        AST$(
+                          17,
+                          3974,
+                          21,
+                          0,
+                          "__toArray"
+                        ),
+                        0,
+                        AST$(
+                          17,
+                          3974,
+                          21,
+                          0,
+                          "args"
+                        )
+                      ),
+                      ".",
+                      AST$(
+                        9,
+                        3974,
+                        1,
+                        0,
+                        "concat"
+                      )
+                    ),
+                    0,
+                    AST$(
+                      2,
+                      3975,
+                      1,
+                      0,
+                      AST$(
+                        16,
+                        3975,
+                        1,
+                        0,
+                        0,
+                        [
+                          AST$(
+                            17,
+                            3974,
+                            29,
+                            0,
+                            "err"
+                          )
+                        ],
+                        ["values"],
+                        AST$(
+                          5,
+                          3975,
+                          1,
+                          0,
+                          AST$(
+                            3,
+                            3974,
+                            33,
+                            0,
+                            AST$(
+                              17,
+                              3974,
+                              37,
+                              0,
+                              "values"
+                            ),
+                            "=",
+                            AST$(
+                              7,
+                              3974,
+                              33,
+                              0,
+                              AST$(
+                                3,
+                                3974,
+                                33,
+                                0,
+                                AST$(
+                                  17,
+                                  3974,
+                                  33,
+                                  0,
+                                  "__slice"
+                                ),
+                                ".",
+                                AST$(
+                                  9,
+                                  3974,
+                                  33,
+                                  0,
+                                  "call"
+                                )
+                              ),
+                              0,
+                              AST$(1, 3974, 33, 0),
+                              AST$(
+                                9,
+                                3974,
+                                28,
+                                0,
+                                1
+                              )
+                            )
+                          ),
+                          AST$(
+                            19,
+                            3975,
+                            1,
+                            0,
+                            AST$(
+                              3,
+                              3975,
+                              7,
+                              0,
+                              AST$(
+                                17,
+                                3975,
+                                7,
+                                0,
+                                "err"
+                              ),
+                              "!=",
+                              AST$(
+                                9,
+                                0,
+                                0,
+                                0,
+                                null
+                              )
+                            ),
+                            AST$(
+                              7,
+                              3976,
+                              1,
+                              0,
+                              AST$(
+                                17,
+                                3976,
+                                1,
+                                0,
+                                "reject"
+                              ),
+                              0,
+                              AST$(
+                                17,
+                                3976,
+                                14,
+                                0,
+                                "err"
+                              )
+                            ),
+                            AST$(
+                              7,
+                              3978,
+                              1,
+                              0,
+                              AST$(
+                                17,
+                                3978,
+                                1,
+                                0,
+                                "fulfill"
+                              ),
+                              0,
+                              AST$(
+                                17,
+                                3978,
+                                15,
+                                0,
+                                "values"
+                              )
+                            )
+                          )
+                        )
+                      )
+                    )
+                  )
+                ),
+                AST$(
+                  23,
+                  3979,
+                  1,
+                  0,
+                  AST$(
+                    17,
+                    3979,
+                    1,
+                    0,
+                    "promise"
+                  )
+                )
+              )
+            ),
+            type: TYPE$.generic(TYPE$.functionBase, TYPE$.makeObject({ sync: TYPE$["function"], then: TYPE$["function"] })),
+            dependencies: ["__defer", "__slice", "__toArray", "__typeof"]
+          },
+          __generator: {
+            helper: AST$(
+              16,
+              4011,
+              29,
+              0,
+              0,
+              [
+                AST$(
+                  17,
+                  4011,
                   30,
                   0,
                   "func"
@@ -63737,12 +64380,12 @@
               0,
               AST$(
                 23,
-                3972,
+                4011,
                 40,
                 0,
                 AST$(
                   16,
-                  3972,
+                  4011,
                   40,
                   0,
                   0,
@@ -63750,57 +64393,57 @@
                   ["args", "self"],
                   AST$(
                     4,
-                    3973,
+                    4012,
                     1,
                     0,
                     0,
                     AST$(
                       3,
-                      3973,
+                      4012,
                       1,
                       0,
                       AST$(
                         17,
-                        3973,
+                        4012,
                         14,
                         0,
                         "self"
                       ),
                       "=",
-                      AST$(25, 3973, 21, 0)
+                      AST$(25, 4012, 21, 0)
                     ),
                     AST$(
                       3,
-                      3974,
+                      4013,
                       1,
                       0,
                       AST$(
                         17,
-                        3974,
+                        4013,
                         14,
                         0,
                         "args"
                       ),
                       "=",
-                      AST$(1, 3974, 32, 0)
+                      AST$(1, 4013, 32, 0)
                     ),
                     AST$(
                       23,
-                      3975,
+                      4014,
                       1,
                       0,
                       AST$(
                         21,
-                        3975,
+                        4014,
                         1,
                         0,
-                        3976,
+                        4015,
                         5,
                         void 0,
                         "iterator",
                         AST$(
                           16,
-                          3976,
+                          4015,
                           13,
                           0,
                           0,
@@ -63808,19 +64451,19 @@
                           0,
                           AST$(
                             23,
-                            3976,
+                            4015,
                             18,
                             0,
-                            AST$(25, 3976, 18, 0)
+                            AST$(25, 4015, 18, 0)
                           )
                         ),
-                        3977,
+                        4016,
                         5,
                         void 0,
                         "send",
                         AST$(
                           16,
-                          3977,
+                          4016,
                           9,
                           0,
                           0,
@@ -63828,36 +64471,36 @@
                           ["value"],
                           AST$(
                             4,
-                            3978,
+                            4017,
                             1,
                             0,
                             0,
                             AST$(
                               18,
-                              3979,
+                              4018,
                               1,
                               0,
                               AST$(
                                 17,
-                                3979,
+                                4018,
                                 9,
                                 0,
                                 "args"
                               ),
                               AST$(
                                 4,
-                                3980,
+                                4019,
                                 1,
                                 0,
                                 0,
                                 AST$(
                                   3,
-                                  3980,
+                                  4019,
                                   1,
                                   0,
                                   AST$(
                                     17,
-                                    3980,
+                                    4019,
                                     1,
                                     0,
                                     "value"
@@ -63865,17 +64508,17 @@
                                   "=",
                                   AST$(
                                     7,
-                                    3980,
+                                    4019,
                                     17,
                                     0,
                                     AST$(
                                       3,
-                                      3980,
+                                      4019,
                                       17,
                                       0,
                                       AST$(
                                         17,
-                                        3980,
+                                        4019,
                                         17,
                                         0,
                                         "func"
@@ -63883,7 +64526,7 @@
                                       ".",
                                       AST$(
                                         9,
-                                        3980,
+                                        4019,
                                         17,
                                         0,
                                         "apply"
@@ -63892,19 +64535,19 @@
                                     0,
                                     AST$(
                                       17,
-                                      3980,
+                                      4019,
                                       24,
                                       0,
                                       "self"
                                     ),
                                     AST$(
                                       7,
-                                      3980,
+                                      4019,
                                       33,
                                       0,
                                       AST$(
                                         17,
-                                        3980,
+                                        4019,
                                         33,
                                         0,
                                         "__toArray"
@@ -63912,7 +64555,7 @@
                                       0,
                                       AST$(
                                         17,
-                                        3980,
+                                        4019,
                                         33,
                                         0,
                                         "args"
@@ -63922,12 +64565,12 @@
                                 ),
                                 AST$(
                                   3,
-                                  3981,
+                                  4020,
                                   1,
                                   0,
                                   AST$(
                                     17,
-                                    3981,
+                                    4020,
                                     1,
                                     0,
                                     "self"
@@ -63935,7 +64578,7 @@
                                   "=",
                                   AST$(
                                     9,
-                                    3981,
+                                    4020,
                                     16,
                                     0,
                                     null
@@ -63943,12 +64586,12 @@
                                 ),
                                 AST$(
                                   3,
-                                  3982,
+                                  4021,
                                   1,
                                   0,
                                   AST$(
                                     17,
-                                    3982,
+                                    4021,
                                     1,
                                     0,
                                     "args"
@@ -63956,7 +64599,7 @@
                                   "=",
                                   AST$(
                                     9,
-                                    3982,
+                                    4021,
                                     16,
                                     0,
                                     null
@@ -63966,32 +64609,32 @@
                             ),
                             AST$(
                               23,
-                              3983,
+                              4022,
                               1,
                               0,
                               AST$(
                                 21,
-                                3983,
+                                4022,
                                 1,
                                 0,
-                                3983,
+                                4022,
                                 10,
                                 void 0,
                                 "done",
                                 AST$(
                                   9,
-                                  3983,
+                                  4022,
                                   9,
                                   0,
                                   true
                                 ),
-                                3983,
+                                4022,
                                 16,
                                 void 0,
                                 "value",
                                 AST$(
                                   17,
-                                  3983,
+                                  4022,
                                   16,
                                   0,
                                   "value"
@@ -64000,13 +64643,13 @@
                             )
                           )
                         ),
-                        3984,
+                        4023,
                         5,
                         void 0,
                         "next",
                         AST$(
                           16,
-                          3984,
+                          4023,
                           9,
                           0,
                           0,
@@ -64014,24 +64657,24 @@
                           0,
                           AST$(
                             23,
-                            3984,
+                            4023,
                             14,
                             0,
                             AST$(
                               7,
-                              3984,
+                              4023,
                               14,
                               0,
                               AST$(
                                 3,
-                                3984,
+                                4023,
                                 14,
                                 0,
-                                AST$(25, 3984, 14, 0),
+                                AST$(25, 4023, 14, 0),
                                 ".",
                                 AST$(
                                   9,
-                                  3984,
+                                  4023,
                                   16,
                                   0,
                                   "send"
@@ -64041,20 +64684,20 @@
                             )
                           )
                         ),
-                        3985,
+                        4024,
                         5,
                         void 0,
                         "throw",
                         AST$(
                           16,
-                          3985,
+                          4024,
                           10,
                           0,
                           0,
                           [
                             AST$(
                               17,
-                              3985,
+                              4024,
                               11,
                               0,
                               "err"
@@ -64063,18 +64706,18 @@
                           0,
                           AST$(
                             4,
-                            3986,
+                            4025,
                             1,
                             0,
                             0,
                             AST$(
                               3,
-                              3986,
+                              4025,
                               1,
                               0,
                               AST$(
                                 17,
-                                3986,
+                                4025,
                                 1,
                                 0,
                                 "self"
@@ -64082,7 +64725,7 @@
                               "=",
                               AST$(
                                 9,
-                                3986,
+                                4025,
                                 14,
                                 0,
                                 null
@@ -64090,12 +64733,12 @@
                             ),
                             AST$(
                               3,
-                              3987,
+                              4026,
                               1,
                               0,
                               AST$(
                                 17,
-                                3987,
+                                4026,
                                 1,
                                 0,
                                 "args"
@@ -64103,7 +64746,7 @@
                               "=",
                               AST$(
                                 9,
-                                3987,
+                                4026,
                                 14,
                                 0,
                                 null
@@ -64111,12 +64754,12 @@
                             ),
                             AST$(
                               26,
-                              3988,
+                              4027,
                               1,
                               0,
                               AST$(
                                 17,
-                                3988,
+                                4027,
                                 12,
                                 0,
                                 "err"
@@ -64141,14 +64784,14 @@
           __somePromise: {
             helper: AST$(
               16,
-              3992,
+              4031,
               1,
               0,
               0,
               [
                 AST$(
                   17,
-                  3991,
+                  4030,
                   33,
                   0,
                   "promises"
@@ -64157,29 +64800,29 @@
               ["_i", "defer", "promise"],
               AST$(
                 4,
-                3992,
+                4031,
                 1,
                 0,
                 0,
                 AST$(
                   18,
-                  3991,
+                  4030,
                   33,
                   0,
                   AST$(
                     30,
-                    3991,
+                    4030,
                     33,
                     0,
                     "!",
                     AST$(
                       7,
-                      3991,
+                      4030,
                       33,
                       0,
                       AST$(
                         17,
-                        3991,
+                        4030,
                         33,
                         0,
                         "__isArray"
@@ -64187,7 +64830,7 @@
                       0,
                       AST$(
                         17,
-                        3991,
+                        4030,
                         33,
                         0,
                         "promises"
@@ -64196,17 +64839,17 @@
                   ),
                   AST$(
                     26,
-                    3991,
+                    4030,
                     33,
                     0,
                     AST$(
                       7,
-                      3991,
+                      4030,
                       33,
                       0,
                       AST$(
                         17,
-                        3991,
+                        4030,
                         33,
                         0,
                         "TypeError"
@@ -64214,12 +64857,12 @@
                       1,
                       AST$(
                         3,
-                        3991,
+                        4030,
                         33,
                         0,
                         AST$(
                           9,
-                          3991,
+                          4030,
                           33,
                           0,
                           "Expected promises to be an Array, got "
@@ -64227,12 +64870,12 @@
                         "+",
                         AST$(
                           7,
-                          3991,
+                          4030,
                           33,
                           0,
                           AST$(
                             17,
-                            3991,
+                            4030,
                             33,
                             0,
                             "__typeof"
@@ -64240,7 +64883,7 @@
                           0,
                           AST$(
                             17,
-                            3991,
+                            4030,
                             33,
                             0,
                             "promises"
@@ -64252,12 +64895,12 @@
                 ),
                 AST$(
                   3,
-                  3992,
+                  4031,
                   1,
                   0,
                   AST$(
                     17,
-                    3992,
+                    4031,
                     6,
                     0,
                     "defer"
@@ -64265,12 +64908,12 @@
                   "=",
                   AST$(
                     7,
-                    3992,
+                    4031,
                     14,
                     0,
                     AST$(
                       17,
-                      3992,
+                      4031,
                       14,
                       0,
                       "__defer"
@@ -64280,22 +64923,22 @@
                 ),
                 AST$(
                   14,
-                  3993,
+                  4032,
                   1,
                   0,
                   AST$(
                     5,
-                    3993,
+                    4032,
                     1,
                     0,
                     AST$(
                       3,
-                      3993,
+                      4032,
                       1,
                       0,
                       AST$(
                         17,
-                        3993,
+                        4032,
                         1,
                         0,
                         "_i"
@@ -64303,12 +64946,12 @@
                       "=",
                       AST$(
                         3,
-                        3993,
+                        4032,
                         1,
                         0,
                         AST$(
                           17,
-                          3993,
+                          4032,
                           17,
                           0,
                           "promises"
@@ -64316,7 +64959,7 @@
                         ".",
                         AST$(
                           9,
-                          3993,
+                          4032,
                           1,
                           0,
                           "length"
@@ -64327,33 +64970,33 @@
                   ),
                   AST$(
                     30,
-                    3993,
+                    4032,
                     1,
                     0,
                     "--post",
                     AST$(
                       17,
-                      3993,
+                      4032,
                       1,
                       0,
                       "_i"
                     )
                   ),
-                  AST$(20, 3993, 1, 0),
+                  AST$(20, 4032, 1, 0),
                   AST$(
                     4,
-                    3994,
+                    4033,
                     1,
                     0,
                     0,
                     AST$(
                       3,
-                      3994,
+                      4033,
                       1,
                       0,
                       AST$(
                         17,
-                        3993,
+                        4032,
                         6,
                         0,
                         "promise"
@@ -64361,12 +65004,12 @@
                       "=",
                       AST$(
                         3,
-                        3993,
+                        4032,
                         1,
                         0,
                         AST$(
                           17,
-                          3993,
+                          4032,
                           17,
                           0,
                           "promises"
@@ -64374,7 +65017,7 @@
                         ".",
                         AST$(
                           17,
-                          3993,
+                          4032,
                           1,
                           0,
                           "_i"
@@ -64383,17 +65026,17 @@
                     ),
                     AST$(
                       7,
-                      3994,
+                      4033,
                       1,
                       0,
                       AST$(
                         3,
-                        3994,
+                        4033,
                         1,
                         0,
                         AST$(
                           17,
-                          3994,
+                          4033,
                           1,
                           0,
                           "promise"
@@ -64401,7 +65044,7 @@
                         ".",
                         AST$(
                           9,
-                          3994,
+                          4033,
                           13,
                           0,
                           "then"
@@ -64410,12 +65053,12 @@
                       0,
                       AST$(
                         3,
-                        3994,
+                        4033,
                         18,
                         0,
                         AST$(
                           17,
-                          3994,
+                          4033,
                           18,
                           0,
                           "defer"
@@ -64423,7 +65066,7 @@
                         ".",
                         AST$(
                           9,
-                          3994,
+                          4033,
                           24,
                           0,
                           "fulfill"
@@ -64431,12 +65074,12 @@
                       ),
                       AST$(
                         3,
-                        3994,
+                        4033,
                         32,
                         0,
                         AST$(
                           17,
-                          3994,
+                          4033,
                           32,
                           0,
                           "defer"
@@ -64444,7 +65087,7 @@
                         ".",
                         AST$(
                           9,
-                          3994,
+                          4033,
                           39,
                           0,
                           "reject"
@@ -64455,17 +65098,17 @@
                 ),
                 AST$(
                   23,
-                  3995,
+                  4034,
                   1,
                   0,
                   AST$(
                     3,
-                    3995,
+                    4034,
                     1,
                     0,
                     AST$(
                       17,
-                      3995,
+                      4034,
                       1,
                       0,
                       "defer"
@@ -64473,7 +65116,7 @@
                     ".",
                     AST$(
                       9,
-                      3995,
+                      4034,
                       9,
                       0,
                       "promise"
@@ -64488,14 +65131,14 @@
           __everyPromise: {
             helper: AST$(
               16,
-              4006,
+              4045,
               1,
               0,
               0,
               [
                 AST$(
                   17,
-                  4005,
+                  4044,
                   34,
                   0,
                   "promises"
@@ -64516,34 +65159,34 @@
               ],
               AST$(
                 4,
-                4006,
+                4045,
                 1,
                 0,
                 0,
                 AST$(
                   18,
-                  4005,
+                  4044,
                   34,
                   0,
                   AST$(
                     3,
-                    4005,
+                    4044,
                     34,
                     0,
                     AST$(
                       3,
-                      4005,
+                      4044,
                       34,
                       0,
                       AST$(
                         30,
-                        4005,
+                        4044,
                         34,
                         0,
                         "typeof",
                         AST$(
                           17,
-                          4005,
+                          4044,
                           34,
                           0,
                           "promises"
@@ -64552,7 +65195,7 @@
                       "!==",
                       AST$(
                         9,
-                        4005,
+                        4044,
                         34,
                         0,
                         "object"
@@ -64561,12 +65204,12 @@
                     "||",
                     AST$(
                       3,
-                      4005,
+                      4044,
                       34,
                       0,
                       AST$(
                         17,
-                        4005,
+                        4044,
                         34,
                         0,
                         "promises"
@@ -64583,17 +65226,17 @@
                   ),
                   AST$(
                     26,
-                    4005,
+                    4044,
                     34,
                     0,
                     AST$(
                       7,
-                      4005,
+                      4044,
                       34,
                       0,
                       AST$(
                         17,
-                        4005,
+                        4044,
                         34,
                         0,
                         "TypeError"
@@ -64601,12 +65244,12 @@
                       1,
                       AST$(
                         3,
-                        4005,
+                        4044,
                         34,
                         0,
                         AST$(
                           9,
-                          4005,
+                          4044,
                           34,
                           0,
                           "Expected promises to be an Object, got "
@@ -64614,12 +65257,12 @@
                         "+",
                         AST$(
                           7,
-                          4005,
+                          4044,
                           34,
                           0,
                           AST$(
                             17,
-                            4005,
+                            4044,
                             34,
                             0,
                             "__typeof"
@@ -64627,7 +65270,7 @@
                           0,
                           AST$(
                             17,
-                            4005,
+                            4044,
                             34,
                             0,
                             "promises"
@@ -64639,12 +65282,12 @@
                 ),
                 AST$(
                   3,
-                  4006,
+                  4045,
                   1,
                   0,
                   AST$(
                     17,
-                    4006,
+                    4045,
                     6,
                     0,
                     "isArray"
@@ -64652,12 +65295,12 @@
                   "=",
                   AST$(
                     7,
-                    4006,
+                    4045,
                     17,
                     0,
                     AST$(
                       17,
-                      4006,
+                      4045,
                       17,
                       0,
                       "__isArray"
@@ -64665,7 +65308,7 @@
                     0,
                     AST$(
                       17,
-                      4006,
+                      4045,
                       27,
                       0,
                       "promises"
@@ -64674,12 +65317,12 @@
                 ),
                 AST$(
                   3,
-                  4007,
+                  4046,
                   1,
                   0,
                   AST$(
                     17,
-                    4007,
+                    4046,
                     1,
                     0,
                     "_ref"
@@ -64687,12 +65330,12 @@
                   "=",
                   AST$(
                     7,
-                    4007,
+                    4046,
                     51,
                     0,
                     AST$(
                       17,
-                      4007,
+                      4046,
                       51,
                       0,
                       "__defer"
@@ -64702,12 +65345,12 @@
                 ),
                 AST$(
                   3,
-                  4007,
+                  4046,
                   1,
                   0,
                   AST$(
                     17,
-                    4007,
+                    4046,
                     16,
                     0,
                     "resultPromise"
@@ -64715,12 +65358,12 @@
                   "=",
                   AST$(
                     3,
-                    4007,
+                    4046,
                     1,
                     0,
                     AST$(
                       17,
-                      4007,
+                      4046,
                       1,
                       0,
                       "_ref"
@@ -64728,7 +65371,7 @@
                     ".",
                     AST$(
                       9,
-                      4007,
+                      4046,
                       8,
                       0,
                       "promise"
@@ -64737,12 +65380,12 @@
                 ),
                 AST$(
                   3,
-                  4007,
+                  4046,
                   1,
                   0,
                   AST$(
                     17,
-                    4007,
+                    4046,
                     32,
                     0,
                     "fulfill"
@@ -64750,12 +65393,12 @@
                   "=",
                   AST$(
                     3,
-                    4007,
+                    4046,
                     1,
                     0,
                     AST$(
                       17,
-                      4007,
+                      4046,
                       1,
                       0,
                       "_ref"
@@ -64763,7 +65406,7 @@
                     ".",
                     AST$(
                       9,
-                      4007,
+                      4046,
                       1,
                       0,
                       "fulfill"
@@ -64772,12 +65415,12 @@
                 ),
                 AST$(
                   3,
-                  4007,
+                  4046,
                   1,
                   0,
                   AST$(
                     17,
-                    4007,
+                    4046,
                     41,
                     0,
                     "reject"
@@ -64785,12 +65428,12 @@
                   "=",
                   AST$(
                     3,
-                    4007,
+                    4046,
                     1,
                     0,
                     AST$(
                       17,
-                      4007,
+                      4046,
                       1,
                       0,
                       "_ref"
@@ -64798,7 +65441,7 @@
                     ".",
                     AST$(
                       9,
-                      4007,
+                      4046,
                       1,
                       0,
                       "reject"
@@ -64807,12 +65450,12 @@
                 ),
                 AST$(
                   3,
-                  4007,
+                  4046,
                   1,
                   0,
                   AST$(
                     17,
-                    4007,
+                    4046,
                     1,
                     0,
                     "_ref"
@@ -64829,55 +65472,55 @@
                 AST$(9, 0, 0, 0),
                 AST$(
                   18,
-                  4008,
+                  4047,
                   15,
                   0,
                   AST$(
                     17,
-                    4008,
+                    4047,
                     18,
                     0,
                     "isArray"
                   ),
                   AST$(
                     3,
-                    4008,
+                    4047,
                     1,
                     0,
                     AST$(
                       17,
-                      4008,
+                      4047,
                       6,
                       0,
                       "result"
                     ),
                     "=",
-                    AST$(2, 4008, 32, 0)
+                    AST$(2, 4047, 32, 0)
                   ),
                   AST$(
                     3,
-                    4008,
+                    4047,
                     1,
                     0,
                     AST$(
                       17,
-                      4008,
+                      4047,
                       6,
                       0,
                       "result"
                     ),
                     "=",
-                    AST$(21, 4008, 40, 0)
+                    AST$(21, 4047, 40, 0)
                   )
                 ),
                 AST$(
                   3,
-                  4009,
+                  4048,
                   1,
                   0,
                   AST$(
                     17,
-                    4009,
+                    4048,
                     14,
                     0,
                     "remaining"
@@ -64885,7 +65528,7 @@
                   "=",
                   AST$(
                     9,
-                    4009,
+                    4048,
                     27,
                     0,
                     1
@@ -64893,12 +65536,12 @@
                 ),
                 AST$(
                   16,
-                  4010,
+                  4049,
                   1,
                   0,
                   AST$(
                     17,
-                    4010,
+                    4049,
                     6,
                     0,
                     "dec"
@@ -64907,23 +65550,23 @@
                   0,
                   AST$(
                     19,
-                    4011,
+                    4050,
                     1,
                     0,
                     AST$(
                       3,
-                      4011,
+                      4050,
                       7,
                       0,
                       AST$(
                         30,
-                        4011,
+                        4050,
                         9,
                         0,
                         "--",
                         AST$(
                           17,
-                          4011,
+                          4050,
                           9,
                           0,
                           "remaining"
@@ -64932,7 +65575,7 @@
                       "===",
                       AST$(
                         9,
-                        4011,
+                        4050,
                         28,
                         0,
                         0
@@ -64940,12 +65583,12 @@
                     ),
                     AST$(
                       7,
-                      4012,
+                      4051,
                       1,
                       0,
                       AST$(
                         17,
-                        4012,
+                        4051,
                         1,
                         0,
                         "fulfill"
@@ -64953,7 +65596,7 @@
                       0,
                       AST$(
                         17,
-                        4012,
+                        4051,
                         15,
                         0,
                         "result"
@@ -64963,12 +65606,12 @@
                 ),
                 AST$(
                   16,
-                  4013,
+                  4052,
                   1,
                   0,
                   AST$(
                     17,
-                    4013,
+                    4052,
                     6,
                     0,
                     "handle"
@@ -64976,14 +65619,14 @@
                   [
                     AST$(
                       17,
-                      4013,
+                      4052,
                       14,
                       0,
                       "key"
                     ),
                     AST$(
                       17,
-                      4013,
+                      4052,
                       18,
                       0,
                       "promise"
@@ -64992,17 +65635,17 @@
                   0,
                   AST$(
                     7,
-                    4014,
+                    4053,
                     1,
                     0,
                     AST$(
                       3,
-                      4014,
+                      4053,
                       1,
                       0,
                       AST$(
                         17,
-                        4014,
+                        4053,
                         1,
                         0,
                         "promise"
@@ -65010,7 +65653,7 @@
                       ".",
                       AST$(
                         9,
-                        4014,
+                        4053,
                         13,
                         0,
                         "then"
@@ -65019,14 +65662,14 @@
                     0,
                     AST$(
                       16,
-                      4015,
+                      4054,
                       8,
                       0,
                       0,
                       [
                         AST$(
                           17,
-                          4015,
+                          4054,
                           9,
                           0,
                           "value"
@@ -65035,22 +65678,22 @@
                       0,
                       AST$(
                         5,
-                        4016,
+                        4055,
                         1,
                         0,
                         AST$(
                           3,
-                          4016,
+                          4055,
                           1,
                           0,
                           AST$(
                             3,
-                            4016,
+                            4055,
                             1,
                             0,
                             AST$(
                               17,
-                              4016,
+                              4055,
                               1,
                               0,
                               "result"
@@ -65058,7 +65701,7 @@
                             ".",
                             AST$(
                               17,
-                              4016,
+                              4055,
                               16,
                               0,
                               "key"
@@ -65067,7 +65710,7 @@
                           "=",
                           AST$(
                             17,
-                            4016,
+                            4055,
                             23,
                             0,
                             "value"
@@ -65075,12 +65718,12 @@
                         ),
                         AST$(
                           7,
-                          4017,
+                          4056,
                           1,
                           0,
                           AST$(
                             17,
-                            4017,
+                            4056,
                             1,
                             0,
                             "dec"
@@ -65091,7 +65734,7 @@
                     ),
                     AST$(
                       17,
-                      4018,
+                      4057,
                       7,
                       0,
                       "reject"
@@ -65100,34 +65743,34 @@
                 ),
                 AST$(
                   18,
-                  4019,
+                  4058,
                   1,
                   0,
                   AST$(
                     17,
-                    4019,
+                    4058,
                     5,
                     0,
                     "isArray"
                   ),
                   AST$(
                     14,
-                    4020,
+                    4059,
                     1,
                     0,
                     AST$(
                       5,
-                      4020,
+                      4059,
                       1,
                       0,
                       AST$(
                         3,
-                        4020,
+                        4059,
                         1,
                         0,
                         AST$(
                           17,
-                          4020,
+                          4059,
                           1,
                           0,
                           "_arr"
@@ -65135,12 +65778,12 @@
                         "=",
                         AST$(
                           7,
-                          4020,
+                          4059,
                           22,
                           0,
                           AST$(
                             17,
-                            4020,
+                            4059,
                             22,
                             0,
                             "__toArray"
@@ -65148,7 +65791,7 @@
                           0,
                           AST$(
                             17,
-                            4020,
+                            4059,
                             22,
                             0,
                             "promises"
@@ -65157,12 +65800,12 @@
                       ),
                       AST$(
                         3,
-                        4020,
+                        4059,
                         17,
                         0,
                         AST$(
                           17,
-                          4020,
+                          4059,
                           17,
                           0,
                           "i"
@@ -65170,12 +65813,12 @@
                         "=",
                         AST$(
                           3,
-                          4020,
+                          4059,
                           17,
                           0,
                           AST$(
                             17,
-                            4020,
+                            4059,
                             1,
                             0,
                             "_arr"
@@ -65183,7 +65826,7 @@
                           ".",
                           AST$(
                             9,
-                            4020,
+                            4059,
                             17,
                             0,
                             "length"
@@ -65194,33 +65837,33 @@
                     ),
                     AST$(
                       30,
-                      4020,
+                      4059,
                       17,
                       0,
                       "--post",
                       AST$(
                         17,
-                        4020,
+                        4059,
                         17,
                         0,
                         "i"
                       )
                     ),
-                    AST$(20, 4020, 1, 0),
+                    AST$(20, 4059, 1, 0),
                     AST$(
                       4,
-                      4021,
+                      4060,
                       1,
                       0,
                       0,
                       AST$(
                         3,
-                        4021,
+                        4060,
                         1,
                         0,
                         AST$(
                           17,
-                          4020,
+                          4059,
                           8,
                           0,
                           "promise"
@@ -65228,12 +65871,12 @@
                         "=",
                         AST$(
                           3,
-                          4020,
+                          4059,
                           1,
                           0,
                           AST$(
                             17,
-                            4020,
+                            4059,
                             1,
                             0,
                             "_arr"
@@ -65241,7 +65884,7 @@
                           ".",
                           AST$(
                             17,
-                            4020,
+                            4059,
                             17,
                             0,
                             "i"
@@ -65250,13 +65893,13 @@
                       ),
                       AST$(
                         30,
-                        4021,
+                        4060,
                         1,
                         0,
                         "++",
                         AST$(
                           17,
-                          4021,
+                          4060,
                           1,
                           0,
                           "remaining"
@@ -65264,12 +65907,12 @@
                       ),
                       AST$(
                         7,
-                        4022,
+                        4061,
                         1,
                         0,
                         AST$(
                           17,
-                          4022,
+                          4061,
                           1,
                           0,
                           "handle"
@@ -65277,14 +65920,14 @@
                         0,
                         AST$(
                           17,
-                          4022,
+                          4061,
                           14,
                           0,
                           "i"
                         ),
                         AST$(
                           17,
-                          4022,
+                          4061,
                           16,
                           0,
                           "promise"
@@ -65294,41 +65937,41 @@
                   ),
                   AST$(
                     15,
-                    4024,
+                    4063,
                     1,
                     0,
                     AST$(
                       17,
-                      4024,
+                      4063,
                       8,
                       0,
                       "k"
                     ),
                     AST$(
                       17,
-                      4024,
+                      4063,
                       22,
                       0,
                       "promises"
                     ),
                     AST$(
                       18,
-                      4025,
+                      4064,
                       1,
                       0,
                       AST$(
                         7,
-                        4025,
+                        4064,
                         1,
                         0,
                         AST$(
                           3,
-                          4025,
+                          4064,
                           1,
                           0,
                           AST$(
                             17,
-                            4025,
+                            4064,
                             1,
                             0,
                             "__owns"
@@ -65336,7 +65979,7 @@
                           ".",
                           AST$(
                             9,
-                            4025,
+                            4064,
                             1,
                             0,
                             "call"
@@ -65345,14 +65988,14 @@
                         0,
                         AST$(
                           17,
-                          4024,
+                          4063,
                           22,
                           0,
                           "promises"
                         ),
                         AST$(
                           17,
-                          4024,
+                          4063,
                           8,
                           0,
                           "k"
@@ -65360,18 +66003,18 @@
                       ),
                       AST$(
                         4,
-                        4025,
+                        4064,
                         1,
                         0,
                         0,
                         AST$(
                           3,
-                          4024,
+                          4063,
                           1,
                           0,
                           AST$(
                             17,
-                            4024,
+                            4063,
                             11,
                             0,
                             "promise"
@@ -65379,12 +66022,12 @@
                           "=",
                           AST$(
                             3,
-                            4024,
+                            4063,
                             1,
                             0,
                             AST$(
                               17,
-                              4024,
+                              4063,
                               22,
                               0,
                               "promises"
@@ -65392,7 +66035,7 @@
                             ".",
                             AST$(
                               17,
-                              4024,
+                              4063,
                               8,
                               0,
                               "k"
@@ -65401,13 +66044,13 @@
                         ),
                         AST$(
                           30,
-                          4025,
+                          4064,
                           1,
                           0,
                           "++",
                           AST$(
                             17,
-                            4025,
+                            4064,
                             1,
                             0,
                             "remaining"
@@ -65415,12 +66058,12 @@
                         ),
                         AST$(
                           7,
-                          4026,
+                          4065,
                           1,
                           0,
                           AST$(
                             17,
-                            4026,
+                            4065,
                             1,
                             0,
                             "handle"
@@ -65428,14 +66071,14 @@
                           0,
                           AST$(
                             17,
-                            4026,
+                            4065,
                             14,
                             0,
                             "k"
                           ),
                           AST$(
                             17,
-                            4026,
+                            4065,
                             16,
                             0,
                             "promise"
@@ -65447,12 +66090,12 @@
                 ),
                 AST$(
                   7,
-                  4027,
+                  4066,
                   1,
                   0,
                   AST$(
                     17,
-                    4027,
+                    4066,
                     1,
                     0,
                     "dec"
@@ -65461,12 +66104,12 @@
                 ),
                 AST$(
                   23,
-                  4028,
+                  4067,
                   1,
                   0,
                   AST$(
                     17,
-                    4028,
+                    4067,
                     1,
                     0,
                     "resultPromise"
@@ -65486,21 +66129,21 @@
           __delay: {
             helper: AST$(
               16,
-              4039,
+              4078,
               1,
               0,
               0,
               [
                 AST$(
                   17,
-                  4038,
+                  4077,
                   26,
                   0,
                   "milliseconds"
                 ),
                 AST$(
                   17,
-                  4038,
+                  4077,
                   49,
                   0,
                   "value"
@@ -65509,29 +66152,29 @@
               ["_ref", "fulfill", "promise"],
               AST$(
                 4,
-                4039,
+                4078,
                 1,
                 0,
                 0,
                 AST$(
                   18,
-                  4038,
+                  4077,
                   26,
                   0,
                   AST$(
                     3,
-                    4038,
+                    4077,
                     26,
                     0,
                     AST$(
                       30,
-                      4038,
+                      4077,
                       26,
                       0,
                       "typeof",
                       AST$(
                         17,
-                        4038,
+                        4077,
                         26,
                         0,
                         "milliseconds"
@@ -65540,7 +66183,7 @@
                     "!==",
                     AST$(
                       9,
-                      4038,
+                      4077,
                       26,
                       0,
                       "number"
@@ -65548,17 +66191,17 @@
                   ),
                   AST$(
                     26,
-                    4038,
+                    4077,
                     26,
                     0,
                     AST$(
                       7,
-                      4038,
+                      4077,
                       26,
                       0,
                       AST$(
                         17,
-                        4038,
+                        4077,
                         26,
                         0,
                         "TypeError"
@@ -65566,12 +66209,12 @@
                       1,
                       AST$(
                         3,
-                        4038,
+                        4077,
                         26,
                         0,
                         AST$(
                           9,
-                          4038,
+                          4077,
                           26,
                           0,
                           "Expected milliseconds to be a Number, got "
@@ -65579,12 +66222,12 @@
                         "+",
                         AST$(
                           7,
-                          4038,
+                          4077,
                           26,
                           0,
                           AST$(
                             17,
-                            4038,
+                            4077,
                             26,
                             0,
                             "__typeof"
@@ -65592,7 +66235,7 @@
                           0,
                           AST$(
                             17,
-                            4038,
+                            4077,
                             26,
                             0,
                             "milliseconds"
@@ -65604,17 +66247,17 @@
                 ),
                 AST$(
                   18,
-                  4039,
+                  4078,
                   1,
                   0,
                   AST$(
                     3,
-                    4039,
+                    4078,
                     5,
                     0,
                     AST$(
                       17,
-                      4039,
+                      4078,
                       5,
                       0,
                       "milliseconds"
@@ -65622,7 +66265,7 @@
                     "<=",
                     AST$(
                       9,
-                      4039,
+                      4078,
                       22,
                       0,
                       0
@@ -65630,22 +66273,22 @@
                   ),
                   AST$(
                     23,
-                    4040,
+                    4079,
                     1,
                     0,
                     AST$(
                       7,
-                      4040,
+                      4079,
                       1,
                       0,
                       AST$(
                         3,
-                        4040,
+                        4079,
                         1,
                         0,
                         AST$(
                           17,
-                          4040,
+                          4079,
                           1,
                           0,
                           "__defer"
@@ -65653,7 +66296,7 @@
                         ".",
                         AST$(
                           9,
-                          4040,
+                          4079,
                           13,
                           0,
                           "fulfilled"
@@ -65662,7 +66305,7 @@
                       0,
                       AST$(
                         17,
-                        4040,
+                        4079,
                         23,
                         0,
                         "value"
@@ -65671,18 +66314,18 @@
                   ),
                   AST$(
                     4,
-                    4042,
+                    4081,
                     1,
                     0,
                     0,
                     AST$(
                       3,
-                      4042,
+                      4081,
                       1,
                       0,
                       AST$(
                         17,
-                        4042,
+                        4081,
                         1,
                         0,
                         "_ref"
@@ -65690,12 +66333,12 @@
                       "=",
                       AST$(
                         7,
-                        4042,
+                        4081,
                         29,
                         0,
                         AST$(
                           17,
-                          4042,
+                          4081,
                           29,
                           0,
                           "__defer"
@@ -65705,12 +66348,12 @@
                     ),
                     AST$(
                       3,
-                      4042,
+                      4081,
                       1,
                       0,
                       AST$(
                         17,
-                        4042,
+                        4081,
                         10,
                         0,
                         "fulfill"
@@ -65718,12 +66361,12 @@
                       "=",
                       AST$(
                         3,
-                        4042,
+                        4081,
                         1,
                         0,
                         AST$(
                           17,
-                          4042,
+                          4081,
                           1,
                           0,
                           "_ref"
@@ -65731,7 +66374,7 @@
                         ".",
                         AST$(
                           9,
-                          4042,
+                          4081,
                           1,
                           0,
                           "fulfill"
@@ -65740,12 +66383,12 @@
                     ),
                     AST$(
                       3,
-                      4042,
+                      4081,
                       1,
                       0,
                       AST$(
                         17,
-                        4042,
+                        4081,
                         18,
                         0,
                         "promise"
@@ -65753,12 +66396,12 @@
                       "=",
                       AST$(
                         3,
-                        4042,
+                        4081,
                         1,
                         0,
                         AST$(
                           17,
-                          4042,
+                          4081,
                           1,
                           0,
                           "_ref"
@@ -65766,7 +66409,7 @@
                         ".",
                         AST$(
                           9,
-                          4042,
+                          4081,
                           1,
                           0,
                           "promise"
@@ -65775,12 +66418,12 @@
                     ),
                     AST$(
                       3,
-                      4042,
+                      4081,
                       1,
                       0,
                       AST$(
                         17,
-                        4042,
+                        4081,
                         1,
                         0,
                         "_ref"
@@ -65797,12 +66440,12 @@
                     AST$(9, 0, 0, 0),
                     AST$(
                       7,
-                      4043,
+                      4082,
                       1,
                       0,
                       AST$(
                         17,
-                        4043,
+                        4082,
                         1,
                         0,
                         "setTimeout"
@@ -65810,7 +66453,7 @@
                       0,
                       AST$(
                         16,
-                        4043,
+                        4082,
                         19,
                         0,
                         0,
@@ -65818,12 +66461,12 @@
                         0,
                         AST$(
                           7,
-                          4043,
+                          4082,
                           22,
                           0,
                           AST$(
                             17,
-                            4043,
+                            4082,
                             22,
                             0,
                             "fulfill"
@@ -65831,7 +66474,7 @@
                           0,
                           AST$(
                             17,
-                            4043,
+                            4082,
                             31,
                             0,
                             "value"
@@ -65840,7 +66483,7 @@
                       ),
                       AST$(
                         17,
-                        4043,
+                        4082,
                         39,
                         0,
                         "milliseconds"
@@ -65848,12 +66491,12 @@
                     ),
                     AST$(
                       23,
-                      4044,
+                      4083,
                       1,
                       0,
                       AST$(
                         17,
-                        4044,
+                        4083,
                         1,
                         0,
                         "promise"
@@ -65869,28 +66512,28 @@
           __promiseLoop: {
             helper: AST$(
               16,
-              4065,
+              4104,
               1,
               0,
               0,
               [
                 AST$(
                   17,
-                  4064,
+                  4103,
                   40,
                   0,
                   "limit"
                 ),
                 AST$(
                   17,
-                  4064,
+                  4103,
                   57,
                   0,
                   "length"
                 ),
                 AST$(
                   17,
-                  4064,
+                  4103,
                   75,
                   0,
                   "body"
@@ -65908,29 +66551,29 @@
               ],
               AST$(
                 4,
-                4065,
+                4104,
                 1,
                 0,
                 0,
                 AST$(
                   18,
-                  4064,
+                  4103,
                   40,
                   0,
                   AST$(
                     3,
-                    4064,
+                    4103,
                     40,
                     0,
                     AST$(
                       30,
-                      4064,
+                      4103,
                       40,
                       0,
                       "typeof",
                       AST$(
                         17,
-                        4064,
+                        4103,
                         40,
                         0,
                         "limit"
@@ -65939,7 +66582,7 @@
                     "!==",
                     AST$(
                       9,
-                      4064,
+                      4103,
                       40,
                       0,
                       "number"
@@ -65947,17 +66590,17 @@
                   ),
                   AST$(
                     26,
-                    4064,
+                    4103,
                     40,
                     0,
                     AST$(
                       7,
-                      4064,
+                      4103,
                       40,
                       0,
                       AST$(
                         17,
-                        4064,
+                        4103,
                         40,
                         0,
                         "TypeError"
@@ -65965,12 +66608,12 @@
                       1,
                       AST$(
                         3,
-                        4064,
+                        4103,
                         40,
                         0,
                         AST$(
                           9,
-                          4064,
+                          4103,
                           40,
                           0,
                           "Expected limit to be a Number, got "
@@ -65978,12 +66621,12 @@
                         "+",
                         AST$(
                           7,
-                          4064,
+                          4103,
                           40,
                           0,
                           AST$(
                             17,
-                            4064,
+                            4103,
                             40,
                             0,
                             "__typeof"
@@ -65991,7 +66634,7 @@
                           0,
                           AST$(
                             17,
-                            4064,
+                            4103,
                             40,
                             0,
                             "limit"
@@ -66003,23 +66646,23 @@
                 ),
                 AST$(
                   18,
-                  4064,
+                  4103,
                   57,
                   0,
                   AST$(
                     3,
-                    4064,
+                    4103,
                     57,
                     0,
                     AST$(
                       30,
-                      4064,
+                      4103,
                       57,
                       0,
                       "typeof",
                       AST$(
                         17,
-                        4064,
+                        4103,
                         57,
                         0,
                         "length"
@@ -66028,7 +66671,7 @@
                     "!==",
                     AST$(
                       9,
-                      4064,
+                      4103,
                       57,
                       0,
                       "number"
@@ -66036,17 +66679,17 @@
                   ),
                   AST$(
                     26,
-                    4064,
+                    4103,
                     57,
                     0,
                     AST$(
                       7,
-                      4064,
+                      4103,
                       57,
                       0,
                       AST$(
                         17,
-                        4064,
+                        4103,
                         57,
                         0,
                         "TypeError"
@@ -66054,12 +66697,12 @@
                       1,
                       AST$(
                         3,
-                        4064,
+                        4103,
                         57,
                         0,
                         AST$(
                           9,
-                          4064,
+                          4103,
                           57,
                           0,
                           "Expected length to be a Number, got "
@@ -66067,12 +66710,12 @@
                         "+",
                         AST$(
                           7,
-                          4064,
+                          4103,
                           57,
                           0,
                           AST$(
                             17,
-                            4064,
+                            4103,
                             57,
                             0,
                             "__typeof"
@@ -66080,7 +66723,7 @@
                           0,
                           AST$(
                             17,
-                            4064,
+                            4103,
                             57,
                             0,
                             "length"
@@ -66092,23 +66735,23 @@
                 ),
                 AST$(
                   18,
-                  4064,
+                  4103,
                   75,
                   0,
                   AST$(
                     3,
-                    4064,
+                    4103,
                     75,
                     0,
                     AST$(
                       30,
-                      4064,
+                      4103,
                       75,
                       0,
                       "typeof",
                       AST$(
                         17,
-                        4064,
+                        4103,
                         75,
                         0,
                         "body"
@@ -66117,7 +66760,7 @@
                     "!==",
                     AST$(
                       9,
-                      4064,
+                      4103,
                       75,
                       0,
                       "function"
@@ -66125,17 +66768,17 @@
                   ),
                   AST$(
                     26,
-                    4064,
+                    4103,
                     75,
                     0,
                     AST$(
                       7,
-                      4064,
+                      4103,
                       75,
                       0,
                       AST$(
                         17,
-                        4064,
+                        4103,
                         75,
                         0,
                         "TypeError"
@@ -66143,12 +66786,12 @@
                       1,
                       AST$(
                         3,
-                        4064,
+                        4103,
                         75,
                         0,
                         AST$(
                           9,
-                          4064,
+                          4103,
                           75,
                           0,
                           "Expected body to be a Function, got "
@@ -66156,12 +66799,12 @@
                         "+",
                         AST$(
                           7,
-                          4064,
+                          4103,
                           75,
                           0,
                           AST$(
                             17,
-                            4064,
+                            4103,
                             75,
                             0,
                             "__typeof"
@@ -66169,7 +66812,7 @@
                           0,
                           AST$(
                             17,
-                            4064,
+                            4103,
                             75,
                             0,
                             "body"
@@ -66181,22 +66824,22 @@
                 ),
                 AST$(
                   18,
-                  4065,
+                  4104,
                   1,
                   0,
                   AST$(
                     3,
-                    4065,
+                    4104,
                     5,
                     0,
                     AST$(
                       3,
-                      4065,
+                      4104,
                       5,
                       0,
                       AST$(
                         17,
-                        4065,
+                        4104,
                         5,
                         0,
                         "limit"
@@ -66204,7 +66847,7 @@
                       "<",
                       AST$(
                         9,
-                        4065,
+                        4104,
                         15,
                         0,
                         1
@@ -66213,12 +66856,12 @@
                     "||",
                     AST$(
                       3,
-                      4065,
+                      4104,
                       19,
                       0,
                       AST$(
                         17,
-                        4065,
+                        4104,
                         19,
                         0,
                         "limit"
@@ -66226,7 +66869,7 @@
                       "!==",
                       AST$(
                         17,
-                        4065,
+                        4104,
                         19,
                         0,
                         "limit"
@@ -66235,12 +66878,12 @@
                   ),
                   AST$(
                     3,
-                    4066,
+                    4105,
                     1,
                     0,
                     AST$(
                       17,
-                      4066,
+                      4105,
                       1,
                       0,
                       "limit"
@@ -66248,7 +66891,7 @@
                     "=",
                     AST$(
                       9,
-                      4066,
+                      4105,
                       13,
                       0,
                       1/0
@@ -66257,27 +66900,27 @@
                 ),
                 AST$(
                   3,
-                  4068,
+                  4107,
                   1,
                   0,
                   AST$(
                     17,
-                    4068,
+                    4107,
                     6,
                     0,
                     "result"
                   ),
                   "=",
-                  AST$(2, 4068, 15, 0)
+                  AST$(2, 4107, 15, 0)
                 ),
                 AST$(
                   3,
-                  4069,
+                  4108,
                   1,
                   0,
                   AST$(
                     17,
-                    4069,
+                    4108,
                     14,
                     0,
                     "done"
@@ -66285,7 +66928,7 @@
                   "=",
                   AST$(
                     9,
-                    4069,
+                    4108,
                     21,
                     0,
                     false
@@ -66293,12 +66936,12 @@
                 ),
                 AST$(
                   3,
-                  4070,
+                  4109,
                   1,
                   0,
                   AST$(
                     17,
-                    4070,
+                    4109,
                     14,
                     0,
                     "slotsUsed"
@@ -66306,7 +66949,7 @@
                   "=",
                   AST$(
                     9,
-                    4070,
+                    4109,
                     28,
                     0,
                     0
@@ -66314,12 +66957,12 @@
                 ),
                 AST$(
                   3,
-                  4071,
+                  4110,
                   1,
                   0,
                   AST$(
                     17,
-                    4071,
+                    4110,
                     1,
                     0,
                     "_ref"
@@ -66327,12 +66970,12 @@
                   "=",
                   AST$(
                     7,
-                    4071,
+                    4110,
                     35,
                     0,
                     AST$(
                       17,
-                      4071,
+                      4110,
                       35,
                       0,
                       "__defer"
@@ -66342,12 +66985,12 @@
                 ),
                 AST$(
                   3,
-                  4071,
+                  4110,
                   1,
                   0,
                   AST$(
                     17,
-                    4071,
+                    4110,
                     8,
                     0,
                     "fulfill"
@@ -66355,12 +66998,12 @@
                   "=",
                   AST$(
                     3,
-                    4071,
+                    4110,
                     1,
                     0,
                     AST$(
                       17,
-                      4071,
+                      4110,
                       1,
                       0,
                       "_ref"
@@ -66368,7 +67011,7 @@
                     ".",
                     AST$(
                       9,
-                      4071,
+                      4110,
                       1,
                       0,
                       "fulfill"
@@ -66377,12 +67020,12 @@
                 ),
                 AST$(
                   3,
-                  4071,
+                  4110,
                   1,
                   0,
                   AST$(
                     17,
-                    4071,
+                    4110,
                     16,
                     0,
                     "reject"
@@ -66390,12 +67033,12 @@
                   "=",
                   AST$(
                     3,
-                    4071,
+                    4110,
                     1,
                     0,
                     AST$(
                       17,
-                      4071,
+                      4110,
                       1,
                       0,
                       "_ref"
@@ -66403,7 +67046,7 @@
                     ".",
                     AST$(
                       9,
-                      4071,
+                      4110,
                       1,
                       0,
                       "reject"
@@ -66412,12 +67055,12 @@
                 ),
                 AST$(
                   3,
-                  4071,
+                  4110,
                   1,
                   0,
                   AST$(
                     17,
-                    4071,
+                    4110,
                     24,
                     0,
                     "promise"
@@ -66425,12 +67068,12 @@
                   "=",
                   AST$(
                     3,
-                    4071,
+                    4110,
                     1,
                     0,
                     AST$(
                       17,
-                      4071,
+                      4110,
                       1,
                       0,
                       "_ref"
@@ -66438,7 +67081,7 @@
                     ".",
                     AST$(
                       9,
-                      4071,
+                      4110,
                       1,
                       0,
                       "promise"
@@ -66447,12 +67090,12 @@
                 ),
                 AST$(
                   3,
-                  4071,
+                  4110,
                   1,
                   0,
                   AST$(
                     17,
-                    4071,
+                    4110,
                     1,
                     0,
                     "_ref"
@@ -66469,12 +67112,12 @@
                 AST$(9, 0, 0, 0),
                 AST$(
                   3,
-                  4072,
+                  4111,
                   1,
                   0,
                   AST$(
                     17,
-                    4072,
+                    4111,
                     14,
                     0,
                     "index"
@@ -66482,7 +67125,7 @@
                   "=",
                   AST$(
                     9,
-                    4072,
+                    4111,
                     23,
                     0,
                     0
@@ -66490,12 +67133,12 @@
                 ),
                 AST$(
                   16,
-                  4073,
+                  4112,
                   1,
                   0,
                   AST$(
                     17,
-                    4073,
+                    4112,
                     6,
                     0,
                     "handle"
@@ -66503,7 +67146,7 @@
                   [
                     AST$(
                       17,
-                      4073,
+                      4112,
                       14,
                       0,
                       "index"
@@ -66512,19 +67155,19 @@
                   0,
                   AST$(
                     4,
-                    4074,
+                    4113,
                     1,
                     0,
                     0,
                     AST$(
                       30,
-                      4074,
+                      4113,
                       1,
                       0,
                       "++",
                       AST$(
                         17,
-                        4074,
+                        4113,
                         1,
                         0,
                         "slotsUsed"
@@ -66532,27 +67175,27 @@
                     ),
                     AST$(
                       23,
-                      4075,
+                      4114,
                       1,
                       0,
                       AST$(
                         7,
-                        4075,
+                        4114,
                         1,
                         0,
                         AST$(
                           3,
-                          4075,
+                          4114,
                           1,
                           0,
                           AST$(
                             7,
-                            4075,
+                            4114,
                             1,
                             0,
                             AST$(
                               17,
-                              4075,
+                              4114,
                               1,
                               0,
                               "body"
@@ -66560,7 +67203,7 @@
                             0,
                             AST$(
                               17,
-                              4075,
+                              4114,
                               10,
                               0,
                               "index"
@@ -66569,7 +67212,7 @@
                           ".",
                           AST$(
                             9,
-                            4075,
+                            4114,
                             17,
                             0,
                             "then"
@@ -66578,14 +67221,14 @@
                         0,
                         AST$(
                           16,
-                          4076,
+                          4115,
                           8,
                           0,
                           0,
                           [
                             AST$(
                               17,
-                              4076,
+                              4115,
                               9,
                               0,
                               "value"
@@ -66594,23 +67237,23 @@
                           0,
                           AST$(
                             4,
-                            4077,
+                            4116,
                             1,
                             0,
                             0,
                             AST$(
                               3,
-                              4077,
+                              4116,
                               1,
                               0,
                               AST$(
                                 3,
-                                4077,
+                                4116,
                                 1,
                                 0,
                                 AST$(
                                   17,
-                                  4077,
+                                  4116,
                                   1,
                                   0,
                                   "result"
@@ -66618,7 +67261,7 @@
                                 ".",
                                 AST$(
                                   17,
-                                  4077,
+                                  4116,
                                   16,
                                   0,
                                   "index"
@@ -66627,7 +67270,7 @@
                               "=",
                               AST$(
                                 17,
-                                4077,
+                                4116,
                                 25,
                                 0,
                                 "value"
@@ -66635,13 +67278,13 @@
                             ),
                             AST$(
                               30,
-                              4078,
+                              4117,
                               1,
                               0,
                               "--",
                               AST$(
                                 17,
-                                4078,
+                                4117,
                                 1,
                                 0,
                                 "slotsUsed"
@@ -66649,17 +67292,17 @@
                             ),
                             AST$(
                               23,
-                              4079,
+                              4118,
                               1,
                               0,
                               AST$(
                                 7,
-                                4079,
+                                4118,
                                 1,
                                 0,
                                 AST$(
                                   17,
-                                  4079,
+                                  4118,
                                   1,
                                   0,
                                   "flush"
@@ -66671,14 +67314,14 @@
                         ),
                         AST$(
                           16,
-                          4080,
+                          4119,
                           8,
                           0,
                           0,
                           [
                             AST$(
                               17,
-                              4080,
+                              4119,
                               9,
                               0,
                               "reason"
@@ -66687,18 +67330,18 @@
                           0,
                           AST$(
                             4,
-                            4081,
+                            4120,
                             1,
                             0,
                             0,
                             AST$(
                               3,
-                              4081,
+                              4120,
                               1,
                               0,
                               AST$(
                                 17,
-                                4081,
+                                4120,
                                 1,
                                 0,
                                 "done"
@@ -66706,7 +67349,7 @@
                               "=",
                               AST$(
                                 9,
-                                4081,
+                                4120,
                                 16,
                                 0,
                                 true
@@ -66714,17 +67357,17 @@
                             ),
                             AST$(
                               23,
-                              4082,
+                              4121,
                               1,
                               0,
                               AST$(
                                 7,
-                                4082,
+                                4121,
                                 1,
                                 0,
                                 AST$(
                                   17,
-                                  4082,
+                                  4121,
                                   1,
                                   0,
                                   "reject"
@@ -66732,7 +67375,7 @@
                                 0,
                                 AST$(
                                   17,
-                                  4082,
+                                  4121,
                                   16,
                                   0,
                                   "reason"
@@ -66747,12 +67390,12 @@
                 ),
                 AST$(
                   16,
-                  4083,
+                  4122,
                   1,
                   0,
                   AST$(
                     17,
-                    4083,
+                    4122,
                     6,
                     0,
                     "flush"
@@ -66761,30 +67404,30 @@
                   0,
                   AST$(
                     4,
-                    4084,
+                    4123,
                     1,
                     0,
                     0,
                     AST$(
                       14,
-                      4084,
+                      4123,
                       1,
                       0,
-                      AST$(20, 4084, 1, 0),
+                      AST$(20, 4123, 1, 0),
                       AST$(
                         3,
-                        4084,
+                        4123,
                         10,
                         0,
                         AST$(
                           30,
-                          4084,
+                          4123,
                           10,
                           0,
                           "!",
                           AST$(
                             17,
-                            4084,
+                            4123,
                             14,
                             0,
                             "done"
@@ -66793,17 +67436,17 @@
                         "&&",
                         AST$(
                           3,
-                          4084,
+                          4123,
                           23,
                           0,
                           AST$(
                             3,
-                            4084,
+                            4123,
                             23,
                             0,
                             AST$(
                               17,
-                              4084,
+                              4123,
                               23,
                               0,
                               "slotsUsed"
@@ -66811,7 +67454,7 @@
                             "<",
                             AST$(
                               17,
-                              4084,
+                              4123,
                               36,
                               0,
                               "limit"
@@ -66820,12 +67463,12 @@
                           "&&",
                           AST$(
                             3,
-                            4084,
+                            4123,
                             46,
                             0,
                             AST$(
                               17,
-                              4084,
+                              4123,
                               46,
                               0,
                               "index"
@@ -66833,7 +67476,7 @@
                             "<",
                             AST$(
                               17,
-                              4084,
+                              4123,
                               54,
                               0,
                               "length"
@@ -66843,13 +67486,13 @@
                       ),
                       AST$(
                         30,
-                        4084,
+                        4123,
                         62,
                         0,
                         "++",
                         AST$(
                           17,
-                          4084,
+                          4123,
                           62,
                           0,
                           "index"
@@ -66857,12 +67500,12 @@
                       ),
                       AST$(
                         7,
-                        4085,
+                        4124,
                         1,
                         0,
                         AST$(
                           17,
-                          4085,
+                          4124,
                           1,
                           0,
                           "handle"
@@ -66870,7 +67513,7 @@
                         0,
                         AST$(
                           17,
-                          4085,
+                          4124,
                           14,
                           0,
                           "index"
@@ -66879,23 +67522,23 @@
                     ),
                     AST$(
                       18,
-                      4086,
+                      4125,
                       1,
                       0,
                       AST$(
                         3,
-                        4086,
+                        4125,
                         7,
                         0,
                         AST$(
                           30,
-                          4086,
+                          4125,
                           7,
                           0,
                           "!",
                           AST$(
                             17,
-                            4086,
+                            4125,
                             11,
                             0,
                             "done"
@@ -66904,17 +67547,17 @@
                         "&&",
                         AST$(
                           3,
-                          4086,
+                          4125,
                           20,
                           0,
                           AST$(
                             3,
-                            4086,
+                            4125,
                             20,
                             0,
                             AST$(
                               17,
-                              4086,
+                              4125,
                               20,
                               0,
                               "index"
@@ -66922,7 +67565,7 @@
                             ">=",
                             AST$(
                               17,
-                              4086,
+                              4125,
                               29,
                               0,
                               "length"
@@ -66931,12 +67574,12 @@
                           "&&",
                           AST$(
                             3,
-                            4086,
+                            4125,
                             40,
                             0,
                             AST$(
                               17,
-                              4086,
+                              4125,
                               40,
                               0,
                               "slotsUsed"
@@ -66944,7 +67587,7 @@
                             "===",
                             AST$(
                               9,
-                              4086,
+                              4125,
                               55,
                               0,
                               0
@@ -66954,18 +67597,18 @@
                       ),
                       AST$(
                         4,
-                        4087,
+                        4126,
                         1,
                         0,
                         0,
                         AST$(
                           3,
-                          4087,
+                          4126,
                           1,
                           0,
                           AST$(
                             17,
-                            4087,
+                            4126,
                             1,
                             0,
                             "done"
@@ -66973,7 +67616,7 @@
                           "=",
                           AST$(
                             9,
-                            4087,
+                            4126,
                             14,
                             0,
                             true
@@ -66981,17 +67624,17 @@
                         ),
                         AST$(
                           23,
-                          4088,
+                          4127,
                           1,
                           0,
                           AST$(
                             7,
-                            4088,
+                            4127,
                             1,
                             0,
                             AST$(
                               17,
-                              4088,
+                              4127,
                               1,
                               0,
                               "fulfill"
@@ -66999,7 +67642,7 @@
                             0,
                             AST$(
                               17,
-                              4088,
+                              4127,
                               15,
                               0,
                               "result"
@@ -67012,12 +67655,12 @@
                 ),
                 AST$(
                   7,
-                  4089,
+                  4128,
                   1,
                   0,
                   AST$(
                     17,
-                    4089,
+                    4128,
                     1,
                     0,
                     "setImmediate"
@@ -67025,7 +67668,7 @@
                   0,
                   AST$(
                     17,
-                    4089,
+                    4128,
                     17,
                     0,
                     "flush"
@@ -67033,12 +67676,12 @@
                 ),
                 AST$(
                   23,
-                  4090,
+                  4129,
                   1,
                   0,
                   AST$(
                     17,
-                    4090,
+                    4129,
                     1,
                     0,
                     "promise"
@@ -67052,28 +67695,28 @@
           __promiseIter: {
             helper: AST$(
               16,
-              4093,
+              4132,
               1,
               0,
               0,
               [
                 AST$(
                   17,
-                  4092,
+                  4131,
                   40,
                   0,
                   "limit"
                 ),
                 AST$(
                   17,
-                  4092,
+                  4131,
                   57,
                   0,
                   "iterator"
                 ),
                 AST$(
                   17,
-                  4092,
+                  4131,
                   87,
                   0,
                   "body"
@@ -67092,29 +67735,29 @@
               ],
               AST$(
                 4,
-                4093,
+                4132,
                 1,
                 0,
                 0,
                 AST$(
                   18,
-                  4092,
+                  4131,
                   40,
                   0,
                   AST$(
                     3,
-                    4092,
+                    4131,
                     40,
                     0,
                     AST$(
                       30,
-                      4092,
+                      4131,
                       40,
                       0,
                       "typeof",
                       AST$(
                         17,
-                        4092,
+                        4131,
                         40,
                         0,
                         "limit"
@@ -67123,7 +67766,7 @@
                     "!==",
                     AST$(
                       9,
-                      4092,
+                      4131,
                       40,
                       0,
                       "number"
@@ -67131,17 +67774,17 @@
                   ),
                   AST$(
                     26,
-                    4092,
+                    4131,
                     40,
                     0,
                     AST$(
                       7,
-                      4092,
+                      4131,
                       40,
                       0,
                       AST$(
                         17,
-                        4092,
+                        4131,
                         40,
                         0,
                         "TypeError"
@@ -67149,12 +67792,12 @@
                       1,
                       AST$(
                         3,
-                        4092,
+                        4131,
                         40,
                         0,
                         AST$(
                           9,
-                          4092,
+                          4131,
                           40,
                           0,
                           "Expected limit to be a Number, got "
@@ -67162,12 +67805,12 @@
                         "+",
                         AST$(
                           7,
-                          4092,
+                          4131,
                           40,
                           0,
                           AST$(
                             17,
-                            4092,
+                            4131,
                             40,
                             0,
                             "__typeof"
@@ -67175,7 +67818,7 @@
                           0,
                           AST$(
                             17,
-                            4092,
+                            4131,
                             40,
                             0,
                             "limit"
@@ -67187,28 +67830,28 @@
                 ),
                 AST$(
                   18,
-                  4092,
+                  4131,
                   57,
                   0,
                   AST$(
                     3,
-                    4092,
+                    4131,
                     57,
                     0,
                     AST$(
                       3,
-                      4092,
+                      4131,
                       57,
                       0,
                       AST$(
                         30,
-                        4092,
+                        4131,
                         57,
                         0,
                         "typeof",
                         AST$(
                           17,
-                          4092,
+                          4131,
                           57,
                           0,
                           "iterator"
@@ -67217,7 +67860,7 @@
                       "!==",
                       AST$(
                         9,
-                        4092,
+                        4131,
                         57,
                         0,
                         "object"
@@ -67226,12 +67869,12 @@
                     "||",
                     AST$(
                       3,
-                      4092,
+                      4131,
                       57,
                       0,
                       AST$(
                         17,
-                        4092,
+                        4131,
                         57,
                         0,
                         "iterator"
@@ -67248,17 +67891,17 @@
                   ),
                   AST$(
                     26,
-                    4092,
+                    4131,
                     57,
                     0,
                     AST$(
                       7,
-                      4092,
+                      4131,
                       57,
                       0,
                       AST$(
                         17,
-                        4092,
+                        4131,
                         57,
                         0,
                         "TypeError"
@@ -67266,12 +67909,12 @@
                       1,
                       AST$(
                         3,
-                        4092,
+                        4131,
                         57,
                         0,
                         AST$(
                           9,
-                          4092,
+                          4131,
                           57,
                           0,
                           "Expected iterator to be an Object, got "
@@ -67279,12 +67922,12 @@
                         "+",
                         AST$(
                           7,
-                          4092,
+                          4131,
                           57,
                           0,
                           AST$(
                             17,
-                            4092,
+                            4131,
                             57,
                             0,
                             "__typeof"
@@ -67292,7 +67935,7 @@
                           0,
                           AST$(
                             17,
-                            4092,
+                            4131,
                             57,
                             0,
                             "iterator"
@@ -67303,28 +67946,28 @@
                   ),
                   AST$(
                     18,
-                    4092,
+                    4131,
                     57,
                     0,
                     AST$(
                       3,
-                      4092,
+                      4131,
                       57,
                       0,
                       AST$(
                         30,
-                        4092,
+                        4131,
                         57,
                         0,
                         "typeof",
                         AST$(
                           3,
-                          4092,
+                          4131,
                           57,
                           0,
                           AST$(
                             17,
-                            4092,
+                            4131,
                             57,
                             0,
                             "iterator"
@@ -67332,7 +67975,7 @@
                           ".",
                           AST$(
                             9,
-                            4092,
+                            4131,
                             71,
                             0,
                             "next"
@@ -67342,7 +67985,7 @@
                       "!==",
                       AST$(
                         9,
-                        4092,
+                        4131,
                         57,
                         0,
                         "function"
@@ -67350,17 +67993,17 @@
                     ),
                     AST$(
                       26,
-                      4092,
+                      4131,
                       57,
                       0,
                       AST$(
                         7,
-                        4092,
+                        4131,
                         57,
                         0,
                         AST$(
                           17,
-                          4092,
+                          4131,
                           57,
                           0,
                           "TypeError"
@@ -67368,12 +68011,12 @@
                         1,
                         AST$(
                           3,
-                          4092,
+                          4131,
                           57,
                           0,
                           AST$(
                             9,
-                            4092,
+                            4131,
                             57,
                             0,
                             "Expected iterator.next to be a Function, got "
@@ -67381,12 +68024,12 @@
                           "+",
                           AST$(
                             7,
-                            4092,
+                            4131,
                             57,
                             0,
                             AST$(
                               17,
-                              4092,
+                              4131,
                               57,
                               0,
                               "__typeof"
@@ -67394,12 +68037,12 @@
                             0,
                             AST$(
                               3,
-                              4092,
+                              4131,
                               57,
                               0,
                               AST$(
                                 17,
-                                4092,
+                                4131,
                                 57,
                                 0,
                                 "iterator"
@@ -67407,7 +68050,7 @@
                               ".",
                               AST$(
                                 9,
-                                4092,
+                                4131,
                                 71,
                                 0,
                                 "next"
@@ -67421,23 +68064,23 @@
                 ),
                 AST$(
                   18,
-                  4092,
+                  4131,
                   87,
                   0,
                   AST$(
                     3,
-                    4092,
+                    4131,
                     87,
                     0,
                     AST$(
                       30,
-                      4092,
+                      4131,
                       87,
                       0,
                       "typeof",
                       AST$(
                         17,
-                        4092,
+                        4131,
                         87,
                         0,
                         "body"
@@ -67446,7 +68089,7 @@
                     "!==",
                     AST$(
                       9,
-                      4092,
+                      4131,
                       87,
                       0,
                       "function"
@@ -67454,17 +68097,17 @@
                   ),
                   AST$(
                     26,
-                    4092,
+                    4131,
                     87,
                     0,
                     AST$(
                       7,
-                      4092,
+                      4131,
                       87,
                       0,
                       AST$(
                         17,
-                        4092,
+                        4131,
                         87,
                         0,
                         "TypeError"
@@ -67472,12 +68115,12 @@
                       1,
                       AST$(
                         3,
-                        4092,
+                        4131,
                         87,
                         0,
                         AST$(
                           9,
-                          4092,
+                          4131,
                           87,
                           0,
                           "Expected body to be a Function, got "
@@ -67485,12 +68128,12 @@
                         "+",
                         AST$(
                           7,
-                          4092,
+                          4131,
                           87,
                           0,
                           AST$(
                             17,
-                            4092,
+                            4131,
                             87,
                             0,
                             "__typeof"
@@ -67498,7 +68141,7 @@
                           0,
                           AST$(
                             17,
-                            4092,
+                            4131,
                             87,
                             0,
                             "body"
@@ -67510,22 +68153,22 @@
                 ),
                 AST$(
                   18,
-                  4093,
+                  4132,
                   1,
                   0,
                   AST$(
                     3,
-                    4093,
+                    4132,
                     5,
                     0,
                     AST$(
                       3,
-                      4093,
+                      4132,
                       5,
                       0,
                       AST$(
                         17,
-                        4093,
+                        4132,
                         5,
                         0,
                         "limit"
@@ -67533,7 +68176,7 @@
                       "<",
                       AST$(
                         9,
-                        4093,
+                        4132,
                         15,
                         0,
                         1
@@ -67542,12 +68185,12 @@
                     "||",
                     AST$(
                       3,
-                      4093,
+                      4132,
                       19,
                       0,
                       AST$(
                         17,
-                        4093,
+                        4132,
                         19,
                         0,
                         "limit"
@@ -67555,7 +68198,7 @@
                       "!==",
                       AST$(
                         17,
-                        4093,
+                        4132,
                         28,
                         0,
                         "limit"
@@ -67564,12 +68207,12 @@
                   ),
                   AST$(
                     3,
-                    4094,
+                    4133,
                     1,
                     0,
                     AST$(
                       17,
-                      4094,
+                      4133,
                       1,
                       0,
                       "limit"
@@ -67577,7 +68220,7 @@
                     "=",
                     AST$(
                       9,
-                      4094,
+                      4133,
                       13,
                       0,
                       1/0
@@ -67586,27 +68229,27 @@
                 ),
                 AST$(
                   3,
-                  4096,
+                  4135,
                   1,
                   0,
                   AST$(
                     17,
-                    4096,
+                    4135,
                     6,
                     0,
                     "result"
                   ),
                   "=",
-                  AST$(2, 4096, 15, 0)
+                  AST$(2, 4135, 15, 0)
                 ),
                 AST$(
                   3,
-                  4097,
+                  4136,
                   1,
                   0,
                   AST$(
                     17,
-                    4097,
+                    4136,
                     14,
                     0,
                     "done"
@@ -67614,7 +68257,7 @@
                   "=",
                   AST$(
                     9,
-                    4097,
+                    4136,
                     21,
                     0,
                     false
@@ -67622,12 +68265,12 @@
                 ),
                 AST$(
                   3,
-                  4098,
+                  4137,
                   1,
                   0,
                   AST$(
                     17,
-                    4098,
+                    4137,
                     14,
                     0,
                     "slotsUsed"
@@ -67635,7 +68278,7 @@
                   "=",
                   AST$(
                     9,
-                    4098,
+                    4137,
                     28,
                     0,
                     0
@@ -67643,12 +68286,12 @@
                 ),
                 AST$(
                   3,
-                  4099,
+                  4138,
                   1,
                   0,
                   AST$(
                     17,
-                    4099,
+                    4138,
                     1,
                     0,
                     "_ref"
@@ -67656,12 +68299,12 @@
                   "=",
                   AST$(
                     7,
-                    4099,
+                    4138,
                     35,
                     0,
                     AST$(
                       17,
-                      4099,
+                      4138,
                       35,
                       0,
                       "__defer"
@@ -67671,12 +68314,12 @@
                 ),
                 AST$(
                   3,
-                  4099,
+                  4138,
                   1,
                   0,
                   AST$(
                     17,
-                    4099,
+                    4138,
                     8,
                     0,
                     "reject"
@@ -67684,12 +68327,12 @@
                   "=",
                   AST$(
                     3,
-                    4099,
+                    4138,
                     1,
                     0,
                     AST$(
                       17,
-                      4099,
+                      4138,
                       1,
                       0,
                       "_ref"
@@ -67697,7 +68340,7 @@
                     ".",
                     AST$(
                       9,
-                      4099,
+                      4138,
                       1,
                       0,
                       "reject"
@@ -67706,12 +68349,12 @@
                 ),
                 AST$(
                   3,
-                  4099,
+                  4138,
                   1,
                   0,
                   AST$(
                     17,
-                    4099,
+                    4138,
                     15,
                     0,
                     "fulfill"
@@ -67719,12 +68362,12 @@
                   "=",
                   AST$(
                     3,
-                    4099,
+                    4138,
                     1,
                     0,
                     AST$(
                       17,
-                      4099,
+                      4138,
                       1,
                       0,
                       "_ref"
@@ -67732,7 +68375,7 @@
                     ".",
                     AST$(
                       9,
-                      4099,
+                      4138,
                       1,
                       0,
                       "fulfill"
@@ -67741,12 +68384,12 @@
                 ),
                 AST$(
                   3,
-                  4099,
+                  4138,
                   1,
                   0,
                   AST$(
                     17,
-                    4099,
+                    4138,
                     24,
                     0,
                     "promise"
@@ -67754,12 +68397,12 @@
                   "=",
                   AST$(
                     3,
-                    4099,
+                    4138,
                     1,
                     0,
                     AST$(
                       17,
-                      4099,
+                      4138,
                       1,
                       0,
                       "_ref"
@@ -67767,7 +68410,7 @@
                     ".",
                     AST$(
                       9,
-                      4099,
+                      4138,
                       1,
                       0,
                       "promise"
@@ -67776,12 +68419,12 @@
                 ),
                 AST$(
                   3,
-                  4099,
+                  4138,
                   1,
                   0,
                   AST$(
                     17,
-                    4099,
+                    4138,
                     1,
                     0,
                     "_ref"
@@ -67798,12 +68441,12 @@
                 AST$(9, 0, 0, 0),
                 AST$(
                   3,
-                  4100,
+                  4139,
                   1,
                   0,
                   AST$(
                     17,
-                    4100,
+                    4139,
                     14,
                     0,
                     "index"
@@ -67811,7 +68454,7 @@
                   "=",
                   AST$(
                     9,
-                    4100,
+                    4139,
                     23,
                     0,
                     0
@@ -67819,12 +68462,12 @@
                 ),
                 AST$(
                   3,
-                  4101,
+                  4140,
                   1,
                   0,
                   AST$(
                     17,
-                    4101,
+                    4140,
                     14,
                     0,
                     "iterStopped"
@@ -67832,7 +68475,7 @@
                   "=",
                   AST$(
                     9,
-                    4101,
+                    4140,
                     29,
                     0,
                     false
@@ -67840,12 +68483,12 @@
                 ),
                 AST$(
                   16,
-                  4102,
+                  4141,
                   1,
                   0,
                   AST$(
                     17,
-                    4102,
+                    4141,
                     6,
                     0,
                     "handle"
@@ -67853,14 +68496,14 @@
                   [
                     AST$(
                       17,
-                      4102,
+                      4141,
                       14,
                       0,
                       "item"
                     ),
                     AST$(
                       17,
-                      4102,
+                      4141,
                       19,
                       0,
                       "index"
@@ -67869,19 +68512,19 @@
                   0,
                   AST$(
                     4,
-                    4103,
+                    4142,
                     1,
                     0,
                     0,
                     AST$(
                       30,
-                      4103,
+                      4142,
                       1,
                       0,
                       "++",
                       AST$(
                         17,
-                        4103,
+                        4142,
                         1,
                         0,
                         "slotsUsed"
@@ -67889,27 +68532,27 @@
                     ),
                     AST$(
                       23,
-                      4104,
+                      4143,
                       1,
                       0,
                       AST$(
                         7,
-                        4104,
+                        4143,
                         1,
                         0,
                         AST$(
                           3,
-                          4104,
+                          4143,
                           1,
                           0,
                           AST$(
                             7,
-                            4104,
+                            4143,
                             1,
                             0,
                             AST$(
                               17,
-                              4104,
+                              4143,
                               1,
                               0,
                               "body"
@@ -67917,14 +68560,14 @@
                             0,
                             AST$(
                               17,
-                              4104,
+                              4143,
                               10,
                               0,
                               "item"
                             ),
                             AST$(
                               17,
-                              4104,
+                              4143,
                               15,
                               0,
                               "index"
@@ -67933,7 +68576,7 @@
                           ".",
                           AST$(
                             9,
-                            4104,
+                            4143,
                             23,
                             0,
                             "then"
@@ -67942,14 +68585,14 @@
                         0,
                         AST$(
                           16,
-                          4105,
+                          4144,
                           8,
                           0,
                           0,
                           [
                             AST$(
                               17,
-                              4105,
+                              4144,
                               9,
                               0,
                               "value"
@@ -67958,23 +68601,23 @@
                           0,
                           AST$(
                             4,
-                            4106,
+                            4145,
                             1,
                             0,
                             0,
                             AST$(
                               3,
-                              4106,
+                              4145,
                               1,
                               0,
                               AST$(
                                 3,
-                                4106,
+                                4145,
                                 1,
                                 0,
                                 AST$(
                                   17,
-                                  4106,
+                                  4145,
                                   1,
                                   0,
                                   "result"
@@ -67982,7 +68625,7 @@
                                 ".",
                                 AST$(
                                   17,
-                                  4106,
+                                  4145,
                                   16,
                                   0,
                                   "index"
@@ -67991,7 +68634,7 @@
                               "=",
                               AST$(
                                 17,
-                                4106,
+                                4145,
                                 25,
                                 0,
                                 "value"
@@ -67999,13 +68642,13 @@
                             ),
                             AST$(
                               30,
-                              4107,
+                              4146,
                               1,
                               0,
                               "--",
                               AST$(
                                 17,
-                                4107,
+                                4146,
                                 1,
                                 0,
                                 "slotsUsed"
@@ -68013,17 +68656,17 @@
                             ),
                             AST$(
                               23,
-                              4108,
+                              4147,
                               1,
                               0,
                               AST$(
                                 7,
-                                4108,
+                                4147,
                                 1,
                                 0,
                                 AST$(
                                   17,
-                                  4108,
+                                  4147,
                                   1,
                                   0,
                                   "flush"
@@ -68035,14 +68678,14 @@
                         ),
                         AST$(
                           16,
-                          4109,
+                          4148,
                           8,
                           0,
                           0,
                           [
                             AST$(
                               17,
-                              4109,
+                              4148,
                               9,
                               0,
                               "reason"
@@ -68051,18 +68694,18 @@
                           0,
                           AST$(
                             4,
-                            4110,
+                            4149,
                             1,
                             0,
                             0,
                             AST$(
                               3,
-                              4110,
+                              4149,
                               1,
                               0,
                               AST$(
                                 17,
-                                4110,
+                                4149,
                                 1,
                                 0,
                                 "done"
@@ -68070,7 +68713,7 @@
                               "=",
                               AST$(
                                 9,
-                                4110,
+                                4149,
                                 16,
                                 0,
                                 true
@@ -68078,17 +68721,17 @@
                             ),
                             AST$(
                               23,
-                              4111,
+                              4150,
                               1,
                               0,
                               AST$(
                                 7,
-                                4111,
+                                4150,
                                 1,
                                 0,
                                 AST$(
                                   17,
-                                  4111,
+                                  4150,
                                   1,
                                   0,
                                   "reject"
@@ -68096,7 +68739,7 @@
                                 0,
                                 AST$(
                                   17,
-                                  4111,
+                                  4150,
                                   16,
                                   0,
                                   "reason"
@@ -68111,12 +68754,12 @@
                 ),
                 AST$(
                   16,
-                  4112,
+                  4151,
                   1,
                   0,
                   AST$(
                     17,
-                    4112,
+                    4151,
                     6,
                     0,
                     "flush"
@@ -68125,30 +68768,30 @@
                   ["item"],
                   AST$(
                     4,
-                    4113,
+                    4152,
                     1,
                     0,
                     0,
                     AST$(
                       14,
-                      4113,
+                      4152,
                       1,
                       0,
-                      AST$(20, 4113, 1, 0),
+                      AST$(20, 4152, 1, 0),
                       AST$(
                         3,
-                        4113,
+                        4152,
                         10,
                         0,
                         AST$(
                           30,
-                          4113,
+                          4152,
                           10,
                           0,
                           "!",
                           AST$(
                             17,
-                            4113,
+                            4152,
                             14,
                             0,
                             "done"
@@ -68157,18 +68800,18 @@
                         "&&",
                         AST$(
                           3,
-                          4113,
+                          4152,
                           23,
                           0,
                           AST$(
                             30,
-                            4113,
+                            4152,
                             23,
                             0,
                             "!",
                             AST$(
                               17,
-                              4113,
+                              4152,
                               27,
                               0,
                               "iterStopped"
@@ -68177,12 +68820,12 @@
                           "&&",
                           AST$(
                             3,
-                            4113,
+                            4152,
                             44,
                             0,
                             AST$(
                               17,
-                              4113,
+                              4152,
                               44,
                               0,
                               "slotsUsed"
@@ -68190,7 +68833,7 @@
                             "<",
                             AST$(
                               17,
-                              4113,
+                              4152,
                               57,
                               0,
                               "limit"
@@ -68198,41 +68841,41 @@
                           )
                         )
                       ),
-                      AST$(20, 4113, 1, 0),
+                      AST$(20, 4152, 1, 0),
                       AST$(
                         4,
-                        4114,
+                        4153,
                         1,
                         0,
                         0,
                         AST$(
                           3,
-                          4114,
+                          4153,
                           1,
                           0,
                           AST$(
                             17,
-                            4114,
+                            4153,
                             18,
                             0,
                             "item"
                           ),
                           "=",
-                          AST$(9, 4114, 25, 0)
+                          AST$(9, 4153, 25, 0)
                         ),
                         AST$(
                           28,
-                          4115,
+                          4154,
                           1,
                           0,
                           AST$(
                             3,
-                            4116,
+                            4155,
                             1,
                             0,
                             AST$(
                               17,
-                              4116,
+                              4155,
                               1,
                               0,
                               "item"
@@ -68240,17 +68883,17 @@
                             "=",
                             AST$(
                               7,
-                              4116,
+                              4155,
                               16,
                               0,
                               AST$(
                                 3,
-                                4116,
+                                4155,
                                 16,
                                 0,
                                 AST$(
                                   17,
-                                  4116,
+                                  4155,
                                   16,
                                   0,
                                   "iterator"
@@ -68258,7 +68901,7 @@
                                 ".",
                                 AST$(
                                   9,
-                                  4116,
+                                  4155,
                                   26,
                                   0,
                                   "next"
@@ -68269,25 +68912,25 @@
                           ),
                           AST$(
                             17,
-                            4117,
+                            4156,
                             12,
                             0,
                             "e"
                           ),
                           AST$(
                             4,
-                            4118,
+                            4157,
                             1,
                             0,
                             0,
                             AST$(
                               3,
-                              4118,
+                              4157,
                               1,
                               0,
                               AST$(
                                 17,
-                                4118,
+                                4157,
                                 1,
                                 0,
                                 "done"
@@ -68295,7 +68938,7 @@
                               "=",
                               AST$(
                                 9,
-                                4118,
+                                4157,
                                 16,
                                 0,
                                 true
@@ -68303,12 +68946,12 @@
                             ),
                             AST$(
                               7,
-                              4119,
+                              4158,
                               1,
                               0,
                               AST$(
                                 17,
-                                4119,
+                                4158,
                                 1,
                                 0,
                                 "reject"
@@ -68316,28 +68959,28 @@
                               0,
                               AST$(
                                 17,
-                                4119,
+                                4158,
                                 16,
                                 0,
                                 "e"
                               )
                             ),
-                            AST$(23, 4120, 1, 0)
+                            AST$(23, 4159, 1, 0)
                           )
                         ),
                         AST$(
                           18,
-                          4122,
+                          4161,
                           1,
                           0,
                           AST$(
                             3,
-                            4122,
+                            4161,
                             9,
                             0,
                             AST$(
                               17,
-                              4122,
+                              4161,
                               9,
                               0,
                               "item"
@@ -68345,7 +68988,7 @@
                             ".",
                             AST$(
                               9,
-                              4122,
+                              4161,
                               15,
                               0,
                               "done"
@@ -68353,18 +68996,18 @@
                           ),
                           AST$(
                             4,
-                            4123,
+                            4162,
                             1,
                             0,
                             0,
                             AST$(
                               3,
-                              4123,
+                              4162,
                               1,
                               0,
                               AST$(
                                 17,
-                                4123,
+                                4162,
                                 1,
                                 0,
                                 "iterStopped"
@@ -68372,23 +69015,23 @@
                               "=",
                               AST$(
                                 9,
-                                4123,
+                                4162,
                                 24,
                                 0,
                                 true
                               )
                             ),
-                            AST$(6, 4124, 1, 0)
+                            AST$(6, 4163, 1, 0)
                           )
                         ),
                         AST$(
                           7,
-                          4126,
+                          4165,
                           1,
                           0,
                           AST$(
                             17,
-                            4126,
+                            4165,
                             1,
                             0,
                             "handle"
@@ -68396,12 +69039,12 @@
                           0,
                           AST$(
                             3,
-                            4126,
+                            4165,
                             14,
                             0,
                             AST$(
                               17,
-                              4126,
+                              4165,
                               14,
                               0,
                               "item"
@@ -68409,7 +69052,7 @@
                             ".",
                             AST$(
                               9,
-                              4126,
+                              4165,
                               19,
                               0,
                               "value"
@@ -68417,13 +69060,13 @@
                           ),
                           AST$(
                             30,
-                            4126,
+                            4165,
                             25,
                             0,
                             "++post",
                             AST$(
                               17,
-                              4126,
+                              4165,
                               35,
                               0,
                               "index"
@@ -68434,23 +69077,23 @@
                     ),
                     AST$(
                       18,
-                      4128,
+                      4167,
                       1,
                       0,
                       AST$(
                         3,
-                        4128,
+                        4167,
                         7,
                         0,
                         AST$(
                           30,
-                          4128,
+                          4167,
                           7,
                           0,
                           "!",
                           AST$(
                             17,
-                            4128,
+                            4167,
                             11,
                             0,
                             "done"
@@ -68459,17 +69102,17 @@
                         "&&",
                         AST$(
                           3,
-                          4128,
+                          4167,
                           20,
                           0,
                           AST$(
                             3,
-                            4128,
+                            4167,
                             20,
                             0,
                             AST$(
                               17,
-                              4128,
+                              4167,
                               20,
                               0,
                               "slotsUsed"
@@ -68477,7 +69120,7 @@
                             "===",
                             AST$(
                               9,
-                              4128,
+                              4167,
                               35,
                               0,
                               0
@@ -68486,7 +69129,7 @@
                           "&&",
                           AST$(
                             17,
-                            4128,
+                            4167,
                             40,
                             0,
                             "iterStopped"
@@ -68495,18 +69138,18 @@
                       ),
                       AST$(
                         4,
-                        4129,
+                        4168,
                         1,
                         0,
                         0,
                         AST$(
                           3,
-                          4129,
+                          4168,
                           1,
                           0,
                           AST$(
                             17,
-                            4129,
+                            4168,
                             1,
                             0,
                             "done"
@@ -68514,7 +69157,7 @@
                           "=",
                           AST$(
                             9,
-                            4129,
+                            4168,
                             14,
                             0,
                             true
@@ -68522,17 +69165,17 @@
                         ),
                         AST$(
                           23,
-                          4130,
+                          4169,
                           1,
                           0,
                           AST$(
                             7,
-                            4130,
+                            4169,
                             1,
                             0,
                             AST$(
                               17,
-                              4130,
+                              4169,
                               1,
                               0,
                               "fulfill"
@@ -68540,7 +69183,7 @@
                             0,
                             AST$(
                               17,
-                              4130,
+                              4169,
                               15,
                               0,
                               "result"
@@ -68553,12 +69196,12 @@
                 ),
                 AST$(
                   7,
-                  4131,
+                  4170,
                   1,
                   0,
                   AST$(
                     17,
-                    4131,
+                    4170,
                     1,
                     0,
                     "setImmediate"
@@ -68566,7 +69209,7 @@
                   0,
                   AST$(
                     17,
-                    4131,
+                    4170,
                     17,
                     0,
                     "flush"
@@ -68574,12 +69217,12 @@
                 ),
                 AST$(
                   23,
-                  4132,
+                  4171,
                   1,
                   0,
                   AST$(
                     17,
-                    4132,
+                    4171,
                     1,
                     0,
                     "promise"
@@ -83128,9 +83771,10 @@
               };
             }());
             return function (macroFullData, __wrap, __const, __value, __symbol, __call, __macro) {
-              var _arr, _f, _i, catchBody, catchIdent, catchPart, current, elseBody,
-                  finallyBody, hasElse, init, macroData, macroName, runElse, tryBody,
-                  typedCatches;
+              var _arr, _i, _this, catchBody, catchIdent, catchPart, current, elseBody,
+                  finallyBody, hasElse, init, letErr, macroData, macroName, runElse,
+                  tryBody, typeCatch, typedCatches, typeIdent, types, value;
+              _this = this;
               macroName = macroFullData.macroName;
               macroData = macroFullData.macroData;
               tryBody = macroData.tryBody;
@@ -83161,9 +83805,8 @@
                   false,
                   false
                 );
-                for (_arr = __toArray(typedCatches), _i = _arr.length, _f = function (typeCatch) {
-                  var _this, letErr, typeIdent, types, value;
-                  _this = this;
+                for (_arr = __toArray(typedCatches), _i = _arr.length; _i--; ) {
+                  typeCatch = _arr[_i];
                   typeIdent = typeCatch.ident;
                   if (!typeIdent.equals(catchIdent)) {
                     letErr = __macro(
@@ -83216,7 +83859,7 @@
                       }
                       return _arr;
                     }()));
-                    return current = __macro(
+                    current = __macro(
                       typeIdent,
                       16,
                       {
@@ -83248,7 +83891,7 @@
                     );
                   } else {
                     value = typeCatch.check.value;
-                    return current = __macro(
+                    current = __macro(
                       typeIdent,
                       16,
                       {
@@ -83279,8 +83922,6 @@
                       false
                     );
                   }
-                }; _i--; ) {
-                  _f.call(this, _arr[_i]);
                 }
                 catchBody = current;
               }
@@ -90592,7 +91233,7 @@
               ["ident", "body", "ident", "GeneratorBody"]
             ],
             names: "promisefor",
-            id: 173
+            id: 174
           },
           {
             code: function (macroFullData, __wrap, __const, __value, __symbol, __call, __macro) {
@@ -90727,7 +91368,7 @@
                 ),
                 __macro(
                   void 0,
-                  173,
+                  174,
                   {
                     macroName: "promisefor",
                     macroData: {
@@ -90796,7 +91437,7 @@
               ["ident", "body", "ident", "GeneratorBody"]
             ],
             names: "promisefor",
-            id: 174
+            id: 175
           },
           {
             code: function (macroFullData, __wrap, __const, __value, __symbol, __call, __macro) {
@@ -90936,7 +91577,7 @@
               ["ident", "body", "ident", "GeneratorBody"]
             ],
             names: "promisefor",
-            id: 175
+            id: 176
           },
           {
             code: function (macroFullData, __wrap, __const, __value, __symbol, __call, __macro) {
@@ -90948,7 +91589,7 @@
             options: { type: "number" },
             params: [["const", ""]],
             names: "__LINE__",
-            id: 176
+            id: 177
           },
           {
             code: function (macroFullData, __wrap, __const, __value, __symbol, __call, __macro) {
@@ -90960,7 +91601,7 @@
             options: { type: "number" },
             params: [["const", ""]],
             names: "__COLUMN__",
-            id: 177
+            id: 178
           },
           {
             code: function (macroFullData, __wrap, __const, __value, __symbol, __call, __macro) {
@@ -90972,7 +91613,7 @@
             options: { type: "string" },
             params: [["const", ""]],
             names: "__FILE__",
-            id: 178
+            id: 179
           },
           {
             code: function (macroFullData, __wrap, __const, __value, __symbol, __call, __macro) {
@@ -90984,7 +91625,7 @@
             options: { type: "number" },
             params: [["const", ""]],
             names: "__DATEMSEC__",
-            id: 179
+            id: 180
           },
           {
             code: function (macroFullData, __wrap, __const, __value, __symbol, __call, __macro) {
@@ -90996,7 +91637,7 @@
             options: { type: "string" },
             params: [["const", ""]],
             names: "__VERSION__",
-            id: 180
+            id: 181
           }
         ],
         call: [
@@ -91695,6 +92336,129 @@
           },
           {
             code: function() {
+            var __num, __slice, __typeof;
+            __num = function (num) {
+              if (typeof num !== "number") {
+                throw new TypeError("Expected a number, got " + __typeof(num));
+              } else {
+                return num;
+              }
+            };
+            __slice = Array.prototype.slice;
+            __typeof = (function () {
+              var _toString;
+              _toString = Object.prototype.toString;
+              return function (o) {
+                if (o === void 0) {
+                  return "Undefined";
+                } else if (o === null) {
+                  return "Null";
+                } else {
+                  return o.constructor && o.constructor.name || _toString.call(o).slice(8, -1);
+                }
+              };
+            }());
+            return function (macroFullData, __wrap, __const, __value, __symbol, __call, __macro) {
+              var args, context, contextAndArgs, func, macroData, macroName, node;
+              macroName = macroFullData.macroName;
+              macroData = macroFullData.macroData;
+              node = macroData[0];
+              if (__num(macroData.length) > 1) {
+                this.error("to-promise-array! only expects one argument");
+              }
+              node = this.macroExpand1(node);
+              if (node.isInternalCall("contextCall")) {
+                func = node.args[0];
+                context = this.macroExpand1(node.args[1]);
+                if (!context.isInternalCall("spread")) {
+                  args = this.internalCall("array", __slice.call(node.args, 2));
+                  return __call(
+                    void 0,
+                    __symbol(void 0, "ident", "__toPromiseArray"),
+                    __wrap(func),
+                    __wrap(context),
+                    __wrap(args)
+                  );
+                } else {
+                  contextAndArgs = __slice.call(node.args, 1);
+                  return this.maybeCache(
+                    this.internalCall("array", contextAndArgs),
+                    function (setContextAndArgs, contextAndArgs) {
+                      return __call(
+                        void 0,
+                        __symbol(void 0, "ident", "__toPromiseArray"),
+                        __wrap(func),
+                        __call(
+                          void 0,
+                          __symbol(void 0, "internal", "access"),
+                          __wrap(setContextAndArgs),
+                          __value(void 0, 0)
+                        ),
+                        __call(
+                          void 0,
+                          __call(
+                            void 0,
+                            __symbol(void 0, "internal", "access"),
+                            __wrap(contextAndArgs),
+                            __value(void 0, "slice")
+                          ),
+                          __value(void 0, 1)
+                        )
+                      );
+                    }
+                  );
+                }
+              } else if (node.isInternalCall("new")) {
+                func = node.args[0];
+                args = this.internalCall("array", __slice.call(node.args, 1));
+                return __call(
+                  void 0,
+                  __symbol(void 0, "ident", "__toPromiseArray"),
+                  __symbol(void 0, "ident", "__new"),
+                  __wrap(func),
+                  __wrap(args)
+                );
+              } else if (node.isNormalCall()) {
+                func = this.macroExpand1(node.func);
+                args = this.internalCall("array", node.args);
+                if (func.isInternalCall("access")) {
+                  return this.maybeCache(func.args[0], function (setParent, parent) {
+                    var child;
+                    child = func.args[1];
+                    return __call(
+                      void 0,
+                      __symbol(void 0, "ident", "__toPromiseArray"),
+                      __call(
+                        void 0,
+                        __symbol(void 0, "internal", "access"),
+                        __wrap(setParent),
+                        __wrap(child)
+                      ),
+                      __wrap(parent),
+                      __wrap(args)
+                    );
+                  });
+                } else {
+                  return __call(
+                    void 0,
+                    __symbol(void 0, "ident", "__toPromiseArray"),
+                    __wrap(func),
+                    __const("void"),
+                    __wrap(args)
+                  );
+                }
+              } else {
+                return this.error("to-promise-array! call expression must be a call", node);
+              }
+            
+            }
+          }.call(this),
+            options: { type: "promise" },
+            names: "toPromiseArray!",
+            id: 170
+          },
+          {
+            code: function() {
             var __num, __typeof;
             __num = function (num) {
               if (typeof num !== "number") {
@@ -91737,7 +92501,7 @@
           }.call(this),
             options: void 0,
             names: "somePromise!",
-            id: 170
+            id: 171
           },
           {
             code: function() {
@@ -91786,7 +92550,7 @@
           }.call(this),
             options: void 0,
             names: "everyPromise!",
-            id: 171
+            id: 172
           },
           {
             code: function() {
@@ -91862,7 +92626,7 @@
           }.call(this),
             options: void 0,
             names: "delay!",
-            id: 172
+            id: 173
           },
           {
             code: function() {
@@ -91927,7 +92691,7 @@
           }.call(this),
             options: { label: "cascade" },
             names: "cascade!",
-            id: 181
+            id: 182
           }
         ]
       };
