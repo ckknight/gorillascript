@@ -68,3 +68,57 @@ describe "Macros", #
     let iter = generator()
     expect(iter.next()).to.eql { -done, value: "hello" }
     expect(iter.next()).to.eql { -done, value: "there" }
+
+macro code-string
+  syntax value as Statement
+    let string = String @macro-expand-all value
+    ASTE $string
+
+describe "to-string method on nodes", #
+  it "on constants", #
+    expect(code-string 1234).to.equal "1234"
+    expect(code-string "hello").to.equal '"hello"'
+    expect(code-string true).to.equal "true"
+    expect(code-string false).to.equal "false"
+    expect(code-string Infinity).to.equal "Infinity"
+    expect(code-string -Infinity).to.equal "-Infinity"
+    expect(code-string NaN).to.equal "NaN"
+
+  it "on idents", #
+    expect(code-string dunno).to.equal 'dunno'
+
+  it "on arrays", #
+    expect(code-string [1, true, "hello"]).to.equal '[1, true, "hello"]'
+
+  it "on objects", #
+    expect(code-string {a: b, c: 1234, +d, -e, f: "hello", "g h": null}).to.equal '{ a: b, c: 1234, d: true, e: false, f: "hello", "g h": null }'
+
+  it "on accesses", #
+    expect(code-string a.b[c].d).to.equal 'a.b[c].d'
+
+  it "on calls", #
+    expect(code-string f x, y).to.equal 'f(x, y)'
+    expect(code-string f x, ...y).to.equal 'f(x, ...y)'
+    expect(code-string o.f x, y).to.equal 'o.f(x, y)'
+    expect(code-string o.f x, ...y).to.equal 'o.f(x, ...y)'
+
+  it "on unary", #
+    let mutable x = void
+    expect(code-string ~+x).to.equal '(+x)'
+    expect(code-string ~-x).to.equal '(-x)'
+    expect(code-string x ~+= 1).to.equal '(++x)'
+    expect(code-string x ~-= 1).to.equal '(--x)'
+    expect(code-string post-inc! x).to.equal '(x++)'
+    expect(code-string post-dec! x).to.equal '(x--)'
+    expect(code-string not x).to.equal '(!x)'
+    expect(code-string ~bitnot x).to.equal '(~x)'
+    expect(code-string typeof something).to.equal 'typeof something'
+    expect(code-string delete o.x).to.equal 'delete o.x'
+
+  it "on binary", #
+    expect(code-string a ~+ b ~* c ~/ d ~- e).to.equal "(((+a) + ((b * c) / d)) - e)"
+
+  it "on assign", #
+    let mutable y = 0
+    let mutable x = 0
+    expect(code-string y := x ~*= 2).to.equal 'y = x *= 2'

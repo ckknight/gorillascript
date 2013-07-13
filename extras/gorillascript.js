@@ -19190,6 +19190,21 @@
           _Value_prototype.inspect = function () {
             return "Value(" + toJSSource(this.value) + ")";
           };
+          _Value_prototype.toString = function () {
+            var value;
+            value = this.value;
+            if (value !== value) {
+              return "NaN";
+            } else {
+              switch (value) {
+              case void 0: return "void";
+              case null: return "null";
+              case 1/0: return "Infinity";
+              case -1/0: return "-Infinity";
+              default: return toJSSource(value);
+              }
+            }
+          };
           return Value;
         }(Node));
         Symbol = (function (Node) {
@@ -19238,6 +19253,9 @@
             _Internal_prototype.inspect = function () {
               return "Symbol." + this.name;
             };
+            _Internal_prototype.toString = function () {
+              return this.name + "!";
+            };
             _Internal_prototype.isInternal = true;
             _Internal_prototype.symbolType = "internal";
             _Internal_prototype.symbolTypeId = 0;
@@ -19249,6 +19267,21 @@
                 validateArgs: function (parent, child) {
                   var rest;
                   rest = __slice.call(arguments, 2);
+                },
+                _toString: function (call) {
+                  var key, sb;
+                  sb = [];
+                  sb.push(call.args[0]);
+                  key = call.args[1];
+                  if (key.isConstType("string") && /^[\w\$_][\w\d\$_]*$/.test(key.constValue())) {
+                    sb.push(".");
+                    sb.push(key.constValue());
+                  } else {
+                    sb.push("[");
+                    sb.push(key);
+                    sb.push("]");
+                  }
+                  return sb.join("");
                 },
                 _type: (function () {
                   var cache, PRIMORDIAL_INSTANCE_PROPERTIES,
@@ -19716,6 +19749,14 @@
                 validateArgs: function () {
                   var args;
                   args = __slice.call(arguments);
+                },
+                _toString: function (call) {
+                  var sb;
+                  sb = [];
+                  sb.push("[");
+                  sb.push(call.args.join(", "));
+                  sb.push("]");
+                  return sb.join("");
                 },
                 _type: function () {
                   return Type.array;
@@ -20483,7 +20524,46 @@
                     }
                     return _value;
                   };
-                }())
+                }()),
+                _toString: function (call) {
+                  var _arr, _len, constKey, i, pair, prototype, sb;
+                  if (!(call.args[0] instanceof Symbol.nothing)) {
+                    prototype = call.args[0];
+                  } else {
+                    prototype = null;
+                  }
+                  if (!prototype && call.args.length <= 1) {
+                    return "{}";
+                  } else {
+                    sb = [];
+                    sb.push("{ ");
+                    if (prototype) {
+                      sb.push("extends " + prototype.toString() + "; ");
+                    }
+                    for (_arr = __toArray(call.args), i = 1, _len = _arr.length; i < _len; ++i) {
+                      pair = _arr[i];
+                      if (i > 1) {
+                        sb.push(", ");
+                      }
+                      if (pair.args.length === 3) {
+                        sb.push(pair.args[2].constValue());
+                        sb.push(" ");
+                      }
+                      if (pair.args[0].isConstType("string")) {
+                        constKey = pair.args[0].constValue();
+                        sb.push(/^[\w\$_][\w\d\$_]*$/.test(constKey) ? constKey : toJSSource(constKey));
+                      } else {
+                        sb.push("[");
+                        sb.push(pair.args[0]);
+                        sb.push("]");
+                      }
+                      sb.push(": ");
+                      sb.push(pair.args[1]);
+                    }
+                    sb.push(" }");
+                    return sb.join("");
+                  }
+                }
               },
               param: {
                 internalId: 20,
@@ -20520,6 +20600,9 @@
                 validateArgs: function (node) {
                   var rest;
                   rest = __slice.call(arguments, 1);
+                },
+                _toString: function (call) {
+                  return "..." + call.args[0].toString();
                 }
               },
               "switch": {
@@ -20888,6 +20971,9 @@
             _Ident_prototype.inspect = function () {
               return "Symbol.ident(" + toJSSource(this.name) + ")";
             };
+            _Ident_prototype.toString = function () {
+              return this.name;
+            };
             _Ident_prototype.equals = function (other) {
               return other === this || other instanceof Ident && this.scope === other.scope && this.name === other.name;
             };
@@ -21035,6 +21121,9 @@
             _Tmp_prototype.inspect = function () {
               return "Symbol.tmp(" + this.id + ", " + toJSSource(this.name) + ")";
             };
+            _Tmp_prototype.toString = function () {
+              return "_" + this.name + "-" + this.id;
+            };
             _Tmp_prototype.equals = function (other) {
               return other === this || other instanceof Tmp && this.scope === other.scope && this.id === other.id;
             };
@@ -21068,6 +21157,9 @@
             _Operator_prototype.equals = function (other) {
               return other === this || other instanceof this.constructor;
             };
+            _Operator_prototype.toString = function () {
+              return this.name;
+            };
             BinaryOperator = (function (Operator) {
               var _BinaryOperator_prototype, _Operator_prototype2, AddOrStringConcat,
                   BitwiseAnd, BitwiseLeftShift, BitwiseOr, BitwiseRightShift,
@@ -21096,6 +21188,9 @@
               _BinaryOperator_prototype.validateArgs = function (left, right) {
                 var rest;
                 rest = __slice.call(arguments, 2);
+              };
+              _BinaryOperator_prototype._toString = function (call) {
+                return "(" + call.args[0].toString() + " " + this.name + " " + call.args[1].toString() + ")";
               };
               _BinaryOperator_prototype._isNoop = (function () {
                 var cache;
@@ -22319,6 +22414,12 @@
               function noopUnary(call, parser) {
                 return call.args[0].isNoop(parser);
               }
+              function symbolicToString(call) {
+                return "(" + this.name + call.args[0].toString() + ")";
+              }
+              function wordyToString(call) {
+                return this.name + " " + call.args[0].toString();
+              }
               Symbol.unary = {
                 "+": ToNumber = (function (UnaryOperator) {
                   var _ToNumber_prototype, _UnaryOperator_prototype2;
@@ -22336,6 +22437,7 @@
                     UnaryOperator.extended(ToNumber);
                   }
                   _ToNumber_prototype.name = "+";
+                  _ToNumber_prototype._toString = symbolicToString;
                   _ToNumber_prototype._type = function () {
                     return Type.number;
                   };
@@ -22371,6 +22473,7 @@
                     UnaryOperator.extended(Negate);
                   }
                   _Negate_prototype.name = "-";
+                  _Negate_prototype._toString = symbolicToString;
                   _Negate_prototype._type = function () {
                     return Type.number;
                   };
@@ -22432,6 +22535,7 @@
                     UnaryOperator.extended(Increment);
                   }
                   _Increment_prototype.name = "++";
+                  _Increment_prototype._toString = symbolicToString;
                   _Increment_prototype._type = function () {
                     return Type.number;
                   };
@@ -22453,6 +22557,7 @@
                     UnaryOperator.extended(Decrement);
                   }
                   _Decrement_prototype.name = "--";
+                  _Decrement_prototype._toString = symbolicToString;
                   _Decrement_prototype._type = function () {
                     return Type.number;
                   };
@@ -22474,6 +22579,9 @@
                     UnaryOperator.extended(PostIncrement);
                   }
                   _PostIncrement_prototype.name = "++post";
+                  _PostIncrement_prototype._toString = function (call) {
+                    return "(" + call.args[0].toString() + "++)";
+                  };
                   _PostIncrement_prototype._type = function () {
                     return Type.number;
                   };
@@ -22495,6 +22603,9 @@
                     UnaryOperator.extended(PostDecrement);
                   }
                   _PostDecrement_prototype.name = "--post";
+                  _PostDecrement_prototype._toString = function (call) {
+                    return "(" + call.args[0].toString() + "--)";
+                  };
                   _PostDecrement_prototype._type = function () {
                     return Type.number;
                   };
@@ -22516,6 +22627,7 @@
                     UnaryOperator.extended(Not);
                   }
                   _Not_prototype.name = "!";
+                  _Not_prototype._toString = symbolicToString;
                   _Not_prototype._type = function () {
                     return Type.boolean;
                   };
@@ -22597,6 +22709,7 @@
                     UnaryOperator.extended(BitwiseNot);
                   }
                   _BitwiseNot_prototype.name = "~";
+                  _BitwiseNot_prototype._toString = symbolicToString;
                   _BitwiseNot_prototype._type = function () {
                     return Type.number;
                   };
@@ -22630,6 +22743,7 @@
                     UnaryOperator.extended(Typeof);
                   }
                   _Typeof_prototype.name = "typeof";
+                  _Typeof_prototype._toString = wordyToString;
                   _Typeof_prototype._type = function () {
                     return Type.string;
                   };
@@ -22680,6 +22794,7 @@
                     UnaryOperator.extended(Delete);
                   }
                   _Delete_prototype.name = "delete";
+                  _Delete_prototype._toString = wordyToString;
                   _Delete_prototype._type = function () {
                     return Type.boolean;
                   };
@@ -22717,6 +22832,9 @@
               _AssignOperator_prototype.validateArgs = function (left, right) {
                 var rest;
                 rest = __slice.call(arguments, 2);
+              };
+              _AssignOperator_prototype._toString = function (call) {
+                return call.args[0].toString() + " " + this.name + " " + call.args[1].toString();
               };
               Symbol.assign = {
                 "=": NormalAssign = (function (AssignOperator) {
@@ -23044,6 +23162,25 @@
             }
             sb.push(")");
             return sb.join("");
+          };
+          _Call_prototype.toString = function () {
+            var _arr, _len, arg, i, sb;
+            if (typeof this.func._toString === "function") {
+              return this.func._toString(this);
+            } else {
+              sb = [];
+              sb.push(this.func);
+              sb.push("(");
+              for (_arr = __toArray(this.args), i = 0, _len = _arr.length; i < _len; ++i) {
+                arg = _arr[i];
+                if (i > 0) {
+                  sb.push(", ");
+                }
+                sb.push(arg);
+              }
+              sb.push(")");
+              return sb.join("");
+            }
           };
           _Call_prototype.equals = function (other) {
             var _arr, _len, arg, args, i, len, otherArgs;
@@ -23392,6 +23529,42 @@
                 sb.push("\n  ");
                 sb.push(key);
                 sb.push(": true");
+              }
+            }
+            sb.push(")");
+            return sb.join("");
+          };
+          _MacroAccess_prototype.toString = function () {
+            var _arr, _i, _len, _obj, i, k, key, sb, v;
+            sb = [];
+            sb.push("macro(");
+            sb.push(this.id);
+            sb.push(", ");
+            sb.push("{");
+            _obj = this.data;
+            i = -1;
+            for (k in _obj) {
+              if (__owns.call(_obj, k)) {
+                ++i;
+                v = _obj[k];
+                if (i > 0) {
+                  sb.push(", ");
+                }
+                sb.push(k);
+                sb.push(": ");
+                if (typeof v === "string") {
+                  sb.push(toJSSource(v));
+                } else {
+                  sb.push(v);
+                }
+              }
+            }
+            sb.push("}");
+            for (_arr = ["inStatement", "inGenerator", "inEvilAst", "doWrapped"], _i = 0, _len = _arr.length; _i < _len; ++_i) {
+              key = _arr[_i];
+              if (this[key]) {
+                sb.push(", +");
+                sb.push(key);
               }
             }
             sb.push(")");
@@ -30315,7 +30488,7 @@
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         _ref = null;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.9.7";
+        exports.version = "0.9.8";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {

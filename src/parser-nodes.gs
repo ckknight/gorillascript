@@ -138,6 +138,23 @@ class Value extends Node
   def inspect()
     "Value($(to-JS-source @value))"
 
+  def to-string()
+    let value = @value
+    if value is NaN
+      "NaN"
+    else
+      switch value
+      case void
+        "void"
+      case null
+        "null"
+      case Infinity
+        "Infinity"
+      case -Infinity
+        "-Infinity"
+      default
+        to-JS-source value
+
 /**
  * Represents a reference of some kind, such as a named or unnamed (i.e. tmp)
  * local binding, a global operator (e.g. `+`) or binding (e.g. `String`), or
@@ -170,6 +187,9 @@ class Symbol extends Node
     
     def inspect()
       "Symbol.$(@name)"
+
+    def to-string()
+      "$(@name)!"
     
     def is-internal = true
     def symbol-type = \internal
@@ -184,6 +204,18 @@ class Symbol extends Node
         validate-args: #(parent as Node, child as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to access"
+        _to-string(call)
+          let sb = []
+          sb.push call.args[0]
+          let key = call.args[1]
+          if key.is-const-type(\string) and r'^[\w\$_][\w\d\$_]*$'.test key.const-value()
+            sb.push "."
+            sb.push key.const-value()
+          else
+            sb.push "["
+            sb.push key
+            sb.push "]"
+          sb.join ""
         _type: do
           let PRIMORDIAL_STATIC_PROPERTIES =
             Object:
@@ -563,6 +595,12 @@ class Symbol extends Node
       array: {
         internal-id: ParserNodeInternalId.Array
         validate-args(...args as [Node]) ->
+        _to-string(call)
+          let sb = []
+          sb.push "["
+          sb.push call.args.join ", "
+          sb.push "]"
+          sb.join ""
         _type() Type.array
         _is-literal: do
           let cache = Cache<Call, Boolean>()
@@ -991,6 +1029,35 @@ class Symbol extends Node
           let cache = Cache<Call, Boolean>()
           #(call, parser)
             cache-get-or-add! cache, call, for every arg in call.args; arg.is-noop(parser)
+        _to-string(call)
+          let prototype = if call.args[0] not instanceof Symbol.nothing then call.args[0] else null
+          if not prototype and call.args.length <= 1
+            "{}"
+          else
+            let sb = []
+            sb.push "{ "
+            if prototype
+              sb.push "extends $(prototype.to-string()); "
+            for pair, i in call.args[1 to -1]
+              if i > 1
+                sb.push ", "
+              if pair.args.length == 3
+                sb.push pair.args[2].const-value()
+                sb.push " "
+              if pair.args[0].is-const-type \string
+                let const-key = pair.args[0].const-value()
+                sb.push if r'^[\w\$_][\w\d\$_]*$'.test const-key
+                  const-key
+                else
+                  to-JS-source const-key
+              else
+                sb.push "["
+                sb.push pair.args[0]
+                sb.push "]"
+              sb.push ": "
+              sb.push pair.args[1]
+            sb.push " }"
+            sb.join ""
       }
       param: {
         internal-id: ParserNodeInternalId.Param
@@ -1023,6 +1090,8 @@ class Symbol extends Node
         validate-args(node as Node, ...rest)
           if DEBUG and rest.length > 0
             throw Error "Too many arguments to spread"
+        _to-string(call)
+          "...$(call.args[0].to-string())"
       }
       switch: {
         internal-id: ParserNodeInternalId.Switch
@@ -1281,6 +1350,9 @@ class Symbol extends Node
     
     def inspect()
       "Symbol.ident($(to-JS-source @name))"
+
+    def to-string()
+      @name
     
     def equals(other)
       other == this or (other instanceof Ident and @scope == other.scope and @name == other.name)
@@ -1398,6 +1470,9 @@ class Symbol extends Node
     
     def inspect()
       "Symbol.tmp($(@id), $(to-JS-source @name))"
+
+    def to-string()
+      "_$(@name)-$(@id)"
     
     def equals(other)
       other == this or (other instanceof Tmp and @scope == other.scope and @id == other.id)
@@ -1424,6 +1499,9 @@ class Symbol extends Node
     def equals(other)
       other == this or (other instanceof @constructor)
     
+    def to-string()
+      @name
+
     class BinaryOperator extends Operator
       def constructor()
         throw Error "UnaryOperator is not meant to be instantiated directly"
@@ -1438,6 +1516,9 @@ class Symbol extends Node
       def validate-args(left as Node, right as Node, ...rest)
         if DEBUG and rest.length > 0
           throw Error "Too many arguments to binary operator $(@name)"
+
+      def _to-string(call)
+        "($(call.args[0].to-string()) $(@name) $(call.args[1].to-string()))"
       
       def _is-noop = do
         let cache = Cache<Call, Boolean>()
@@ -2079,10 +2160,17 @@ class Symbol extends Node
       let noop-unary(call, parser)
         call.args[0].is-noop(parser)
       
+      let symbolic-to-string(call)
+        "($(@name)$(call.args[0].to-string()))"
+
+      let wordy-to-string(call)
+        "$(@name) $(call.args[0].to-string())"
+
       Symbol.unary := {
         "+": class ToNumber extends UnaryOperator
           def constructor(@index as Number) ->
           def name = "+"
+          def _to-string = symbolic-to-string
           def _type() Type.number
           def _is-noop = noop-unary
           def __reduce(call, parser)
@@ -2097,10 +2185,11 @@ class Symbol extends Node
                 node
             else
               call
-        
+
         "-": class Negate extends UnaryOperator
           def constructor(@index as Number) ->
           def name = "-"
+          def _to-string = symbolic-to-string
           def _type() Type.number
           def _is-noop = noop-unary
           def __reduce(call, parser)
@@ -2140,26 +2229,33 @@ class Symbol extends Node
         "++": class Increment extends UnaryOperator
           def constructor(@index as Number) ->
           def name = "++"
+          def _to-string = symbolic-to-string
           def _type() Type.number
         
         "--": class Decrement extends UnaryOperator
           def constructor(@index as Number) ->
           def name = "--"
+          def _to-string = symbolic-to-string
           def _type() Type.number
         
         "++post": class PostIncrement extends UnaryOperator
           def constructor(@index as Number) ->
           def name = "++post"
+          def _to-string(call)
+            "($(call.args[0].to-string())++)"
           def _type() Type.number
       
         "--post": class PostDecrement extends UnaryOperator
           def constructor(@index as Number) ->
           def name = "--post"
+          def _to-string(call)
+            "($(call.args[0].to-string())--)"
           def _type() Type.number
       
         "!": class Not extends UnaryOperator
           def constructor(@index as Number) ->
           def name = "!"
+          def _to-string = symbolic-to-string
           def _type() Type.boolean
           def _is-noop = noop-unary
         
@@ -2216,6 +2312,7 @@ class Symbol extends Node
         "~": class BitwiseNot extends UnaryOperator
           def constructor(@index as Number) ->
           def name = "~"
+          def _to-string = symbolic-to-string
           def _type() Type.number
           def _is-noop = noop-unary
           def __reduce(call, parser)
@@ -2232,6 +2329,7 @@ class Symbol extends Node
         typeof: class Typeof extends UnaryOperator
           def constructor(@index as Number) ->
           def name = \typeof
+          def _to-string = wordy-to-string
           def _type() Type.string
           def _is-noop = noop-unary
         
@@ -2272,6 +2370,7 @@ class Symbol extends Node
         delete: class Delete extends UnaryOperator
           def constructor(@index as Number) ->
           def name = \delete
+          def _to-string = wordy-to-string
           def _type() Type.boolean
       }
     
@@ -2289,6 +2388,9 @@ class Symbol extends Node
         if DEBUG and rest.length > 0
           throw Error "Too many arguments to assign operator $(@name)"
       
+      def _to-string(call)
+        "$(call.args[0].to-string()) $(@name) $(call.args[1].to-string())"
+
       Symbol.assign := {
         "=": class NormalAssign extends AssignOperator
           def constructor(@index as Number) ->
@@ -2392,6 +2494,20 @@ class Call extends Node
       sb.push arg.inspect(depth-1).split("\n").join("\n  ")
     sb.push ")"
     sb.join ""
+
+  def to-string()
+    if is-function! @func._to-string
+      @func._to-string this
+    else
+      let sb = []
+      sb.push @func
+      sb.push "("
+      for arg, i in @args
+        if i > 0
+          sb.push ", "
+        sb.push arg
+      sb.push ")"
+      sb.join ""
   
   def equals(other)
     if other == this
@@ -2601,6 +2717,29 @@ class MacroAccess extends Node
         sb.push "\n  "
         sb.push key
         sb.push ": true"
+    sb.push ")"
+    sb.join ""
+
+  def to-string()
+    let sb = []
+    sb.push "macro("
+    sb.push @id
+    sb.push ", "
+    sb.push "{"
+    for k, v, i of @data
+      if i > 0
+        sb.push ", "
+      sb.push k
+      sb.push ": "
+      if is-string! v
+        sb.push to-JS-source v
+      else
+        sb.push v
+    sb.push "}"
+    for key in [\in-statement, \in-generator, \in-evil-ast, \do-wrapped]
+      if this[key]
+        sb.push ", +"
+        sb.push key
     sb.push ")"
     sb.join ""
   
