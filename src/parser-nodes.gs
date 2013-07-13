@@ -49,6 +49,7 @@ class Node
   def is-unary-call() -> false
   def is-binary-call() -> false
   def is-assign-call() -> false
+  def is-normal-call() -> false
   def do-wrap-args = true
   def convert-nothing() -> this
 

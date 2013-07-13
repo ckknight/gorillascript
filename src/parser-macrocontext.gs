@@ -229,8 +229,14 @@ class MacroContext
     #(node)
       if node instanceof ParserNode
         cache-get-or-add! cache, node, do
-          if node.is-internal-call(\function)
+          if node.is-internal-call \function
             true
+          else if node.is-normal-call() and (node.func.is-internal-call \function or (node.func.is-internal-call(\access) and node.func.args[0].is-internal-call(\function) and node.func.args[1].is-const-value(\call, \apply) and node.args[0].is-ident and node.args[0].name == \this))
+            for some arg in [...node.func.args, ...node.args]
+              @has-func arg
+          else if node.is-internal-call(\context-call) and node.args[0].is-internal-call(\function) and node.args[1].is-ident and node.args[1].name == \this
+            for some arg in [...node.args[0].args, ...node.args[2 to -1]]
+              @has-func arg
           else
             let expanded-node = @macro-expand-1(node)
             if expanded-node != node

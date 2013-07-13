@@ -3931,13 +3931,13 @@ macro from-promise!(node)
   ASTE __from-promise $node
 
 macro helper __to-promise = #(func as ->, context, args)
-  let d = __defer()
+  let {promise, reject, fulfill} = __defer()
   func@ context, ...args, #(err, value)!
     if err?
-      d.reject err
+      reject err
     else
-      d.fulfill value
-  d.promise
+      fulfill value
+  promise
 
 macro to-promise!(node) with type: \promise
   if macro-data.length > 1
@@ -3968,6 +3968,45 @@ macro to-promise!(node) with type: \promise
       ASTE __to-promise $func, void, $args
   else
     @error "to-promise! call expression must be a call", node
+
+macro helper __to-promise-array = #(func as ->, context, args)
+  let {promise, reject, fulfill} = __defer()
+  func@ context, ...args, #(err, ...values)!
+    if err?
+      reject err
+    else
+      fulfill values
+  promise
+
+macro to-promise-array!(node) with type: \promise
+  if macro-data.length > 1
+    @error "to-promise-array! only expects one argument"
+  node := @macro-expand-1 node
+  if node.is-internal-call \context-call
+    let func = node.args[0]
+    let context = @macro-expand-1 node.args[1]
+    unless context.is-internal-call \spread
+      let args = @internal-call \array, node.args[2 to -1]
+      ASTE __to-promise-array $func, $context, $args
+    else
+      let context-and-args = node.args[1 to -1]
+      @maybe-cache @internal-call(\array, context-and-args), #(set-context-and-args, context-and-args)
+        ASTE __to-promise-array $func, $set-context-and-args[0], $context-and-args.slice(1)
+  else if node.is-internal-call \new
+    let func = node.args[0]
+    let args = @internal-call \array, node.args[1 to -1]
+    ASTE __to-promise-array __new, $func, $args
+  else if node.is-normal-call()
+    let func = @macro-expand-1 node.func
+    let args = @internal-call \array, node.args
+    if func.is-internal-call \access
+      @maybe-cache func.args[0], #(set-parent, parent)
+        let child = func.args[1]
+        ASTE __to-promise-array $set-parent[$child], $parent, $args
+    else
+      ASTE __to-promise-array $func, void, $args
+  else
+    @error "to-promise-array! call expression must be a call", node
 
 macro helper __generator = #(func) -> #
   let mutable self = this

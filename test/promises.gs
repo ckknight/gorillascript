@@ -321,6 +321,192 @@ describe "to-promise!", #
             cb()
           .then null, cb
 
+describe "to-promise-array!", #
+  describe "with a standard function call", #
+    let get-args(...args, callback)
+      callback(null, ...args)
+    let error(err, callback)
+      callback(err)
+    
+    describe "without a spread", #
+      it "works with the resolved state", #(cb)!
+        let promise = to-promise-array! get-args(\alpha, \bravo, \charlie)
+        promise
+          .then #(value)
+            expect(value).to.eql [\alpha, \bravo, \charlie]
+            cb()
+          .then null, cb
+    
+      it "works with the rejected state", #(cb)!
+        let err = {}
+        let promise = to-promise-array! error(err)
+        promise
+          .then null, #(reason)
+            expect(reason).to.equal err
+            cb()
+          .then null, cb
+    
+    describe "with a spread", #
+      it "works with the resolved state", #(cb)!
+        let args = [\alpha, \bravo]
+        let promise = to-promise-array! get-args(...args, \charlie)
+        promise
+          .then #(value)
+            expect(value).to.eql [\alpha, \bravo, \charlie]
+            cb()
+          .then null, cb
+    
+      it "works with the rejected state", #(cb)!
+        let err = {}
+        let args = [err]
+        let promise = to-promise-array! error(...args)
+        promise
+          .then null, #(reason)
+            expect(reason).to.equal err
+            cb()
+          .then null, cb
+  
+  describe "with a method call", #
+    let obj = {
+      get-args: #(...args, callback)
+        expect(this).to.equal obj
+        callback(null, ...args)
+      error: #(err, callback)
+        expect(this).to.equal obj
+        callback(err)
+    }
+    
+    describe "without a spread", #
+      it "works with the resolved state", #(cb)!
+        let promise = to-promise-array! obj.get-args(\alpha, \bravo, \charlie)
+        promise
+          .then #(value)
+            expect(value).to.eql [\alpha, \bravo, \charlie]
+            cb()
+          .then null, cb
+
+      it "works with the rejected state", #(cb)!
+        let err = {}
+        let promise = to-promise-array! obj.error(err)
+        promise
+          .then null, #(reason)
+            expect(reason).to.equal err
+            cb()
+          .then null, cb
+    
+    describe "with a spread", #
+      it "works with the resolved state", #(cb)!
+        let args = [\alpha, \bravo]
+        let promise = to-promise-array! obj.get-args(...args, \charlie)
+        promise
+          .then #(value)
+            expect(value).to.eql [\alpha, \bravo, \charlie]
+            cb()
+          .then null, cb
+
+      it "works with the rejected state", #(cb)!
+        let err = {}
+        let args = [err]
+        let promise = to-promise-array! obj.error(...args)
+        promise
+          .then null, #(reason)
+            expect(reason).to.equal err
+            cb()
+          .then null, cb
+  
+  describe "with an apply call", #
+    let obj = {}
+    let get-args = #(...args, callback)
+      expect(this).to.equal obj
+      callback(null, ...args)
+    let error = #(err, callback)
+      expect(this).to.equal obj
+      callback(err)
+    
+    describe "without a spread", #
+      it "works with the resolved state", #(cb)!
+        let promise = to-promise-array! get-args@(obj, \alpha, \bravo, \charlie)
+        promise
+          .then #(value)
+            expect(value).to.eql [\alpha, \bravo, \charlie]
+            cb()
+          .then null, cb
+
+      it "works with the rejected state", #(cb)!
+        let err = {}
+        let promise = to-promise-array! error@(obj, err)
+        promise
+          .then null, #(reason)
+            expect(reason).to.equal err
+            cb()
+          .then null, cb
+    
+    describe "with a spread", #
+      it "works with the resolved state", #(cb)!
+        let args = [obj, \alpha, \bravo]
+        let promise = to-promise-array! get-args@(...args, \charlie)
+        promise
+          .then #(value)
+            expect(value).to.eql [\alpha, \bravo, \charlie]
+            cb()
+          .then null, cb
+
+      it "works with the rejected state", #(cb)!
+        let err = {}
+        let args = [obj, err]
+        let promise = to-promise-array! error@(...args)
+        promise
+          .then null, #(reason)
+            expect(reason).to.equal err
+            cb()
+          .then null, cb
+  
+  describe "with a new call", #
+    let get-args = #(...args, callback)
+      expect(this).to.be.an.instanceof(get-args)
+      callback(null, ...args)
+    let error = #(err, callback)
+      expect(this).to.be.an.instanceof(error)
+      callback(err)
+    
+    describe "without a spread", #
+      it "works with the resolved state", #(cb)!
+        let promise = to-promise-array! new get-args(\alpha, \bravo, \charlie)
+        promise
+          .then #(value)
+            expect(value).to.eql [\alpha, \bravo, \charlie]
+            cb()
+          .then null, cb
+
+      it "works with the rejected state", #(cb)!
+        let err = {}
+        let promise = to-promise-array! new error(err)
+        promise
+          .then null, #(reason)
+            expect(reason).to.equal err
+            cb()
+          .then null, cb
+    
+    describe "with a spread", #
+      it "works with the resolved state", #(cb)!
+        let args = [\alpha, \bravo]
+        let promise = to-promise-array! new get-args(...args, \charlie)
+        promise
+          .then #(value)
+            expect(value).to.eql [\alpha, \bravo, \charlie]
+            cb()
+          .then null, cb
+
+      it "works with the rejected state", #(cb)!
+        let err = {}
+        let args = [err]
+        let promise = to-promise-array! new error(...args)
+        promise
+          .then null, #(reason)
+            expect(reason).to.equal err
+            cb()
+          .then null, cb
+
 describe "fulfilled!", #
   it "produces an already-fulfilled promise", #(cb)!
     let alpha = fulfilled! \bravo
