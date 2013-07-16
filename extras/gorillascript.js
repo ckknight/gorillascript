@@ -11746,7 +11746,7 @@
         ExpressionOrAssignmentOrBody = cache(oneOf(ExpressionOrAssignment, Body));
         StringInterpolation = sequential(DollarSignChar, NoSpace, SHORT_CIRCUIT, [
           "this",
-          oneOf(Identifier, sequential(
+          oneOf(CustomConstantLiteral, Identifier, sequential(
             OpenParenthesis,
             [
               "this",
@@ -30564,7 +30564,7 @@
         writeFileWithMkdirpSync = _ref.writeFileWithMkdirpSync;
         _ref = null;
         isAcceptableIdent = require("./jsutils").isAcceptableIdent;
-        exports.version = "0.9.9";
+        exports.version = "0.9.10";
         exports.ParserError = parser.ParserError;
         exports.MacroError = parser.MacroError;
         if (require.extensions) {

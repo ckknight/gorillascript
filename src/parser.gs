@@ -2361,6 +2361,7 @@ let StringInterpolation = sequential(
   NoSpace
   SHORT_CIRCUIT
   [\this, one-of(
+    CustomConstantLiteral
     Identifier
     sequential(
       OpenParenthesis

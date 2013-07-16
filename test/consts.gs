@@ -5,6 +5,7 @@ const unfalse = true
 const untrue = false
 const CONST_OBJECT = { alpha: 1, bravo: 2 }
 const CONST_ARRAY = [\alpha, \bravo, \charlie]
+const CONST_STRING = "hello"
 
 describe "consts", #
   it "work from the top scope", #
@@ -103,3 +104,13 @@ describe "array consts", #
     expect(make-code(1)).to.contain "bravo"
     expect(make-code(2)).to.contain "charlie"
     expect(make-code("length")).to.contain "3"
+
+describe "string consts", #
+  it "can be used in a concat expression", #
+    expect(CONST_STRING & ", world").to.equal "hello, world"
+
+  it "can be interpolated with parentheses", #
+    expect("$(CONST_STRING), world").to.equal "hello, world"
+
+  it "can be interpolated without parentheses", #
+    expect("$CONST_STRING, world").to.equal "hello, world"
