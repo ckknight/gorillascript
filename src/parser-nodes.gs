@@ -1159,19 +1159,26 @@ class Symbol extends Node
         internal-id: ParserNodeInternalId.SyntaxChoice
         -do-wrap-args
       }
+      syntax-lookahead: {
+        internal-id: ParserNodeInternalId.SyntaxLookahead
+        -do-wrap-args
+        validate-args(negated as Value, node as Node, ...rest)
+          if DEBUG and rest.length > 0
+            throw Error "Too many arguments to syntax-lookahead"
+      }
       syntax-many: {
         internal-id: ParserNodeInternalId.SyntaxMany
         -do-wrap-args
         validate-args(node as Node, multiplier as Value, ...rest)
           if DEBUG and rest.length > 0
-            throw Error "Too many arguments to throw"
+            throw Error "Too many arguments to syntax-many"
       }
       syntax-param: {
         internal-id: ParserNodeInternalId.SyntaxParam
         -do-wrap-args
         validate-args(node as Node, as-type as Node, ...rest)
           if DEBUG and rest.length > 0
-            throw Error "Too many arguments to throw"
+            throw Error "Too many arguments to syntax-param"
       }
       syntax-sequence: {
         internal-id: ParserNodeInternalId.SyntaxSequence

@@ -122,3 +122,55 @@ describe "to-string method on nodes", #
     let mutable y = 0
     let mutable x = 0
     expect(code-string y := x ~*= 2).to.equal 'y = x *= 2'
+
+macro test-override-call()
+  ASTE "alpha"
+
+macro test-override-syntax
+  syntax "woo"
+    ASTE "alpha"
+
+describe "Before overriding", #
+  it "should evaluate the old macro", #
+    expect(test-override-call()).to.equal "alpha"
+    expect(test-override-syntax woo).to.equal "alpha"
+
+macro test-override-call()
+  ASTE "bravo"
+
+macro test-override-syntax
+  syntax "woo"
+    ASTE "bravo"
+
+  syntax "woo", "doggy"
+    ASTE "charlie"
+
+describe "After overriding", #
+  it "should evaluate the new macro", #
+    expect(test-override-call()).to.equal "bravo"
+    expect(test-override-syntax woo).to.equal "bravo"
+    expect(test-override-syntax woo doggy).to.equal "charlie"
+
+macro lookahead-test
+  syntax ?="\n", ""
+    ASTE \newline
+
+  syntax "(", ")"
+    ASTE \call
+
+  syntax ?=ArrayLiteral, x as Expression
+    ASTE \array
+
+  syntax ?!ArrayLiteral, x as Expression
+    ASTE \not-array
+
+it "Lookahead should work", #
+  let call = lookahead-test()
+  let newline = lookahead-test
+  let array = lookahead-test []
+  let not-array = lookahead-test 1 + 2
+
+  expect(call).to.equal \call
+  expect(newline).to.equal \newline
+  expect(array).to.equal \array
+  expect(not-array).to.equal \not-array

@@ -1133,9 +1133,9 @@ macro operator assign *=, /=, %=, +=, -=, bitlshift=, bitrshift=, biturshift=, b
 
 macro do
   syntax locals as (ident as Identifier, "=", value, rest as (",", ident as Identifier, "=", value)*)?, body as (Body | (";", this as Statement))
-    let params = []
-    let values = []
     if locals
+      let params = []
+      let values = []
       let all-locals = [{locals.ident, locals.value}].concat(locals.rest)
       let f(i)@
         if i < all-locals.length
@@ -1149,9 +1149,11 @@ macro do
             values.push all-locals[i].value
           f i + 1
       f 0
-    @call(
-      @func(params, @internal-call(\auto-return, body), true)
-      values)
+      @call(
+        @func(params, @internal-call(\auto-return, body), true)
+        values)
+    else
+      ASTE (#@ -> $body)()
 
 macro with
   syntax node as Expression, body as (Body | (";", this as Statement))
@@ -2524,7 +2526,7 @@ macro switch
       ...result-cases
       default-case or AST throw Error "Unhandled value in switch"
   
-  syntax cases as ("\n", "case", test as Logic, body as (BodyNoEnd | (";", this as Statement))?)*, default-case as ("\n", "default", this as (BodyNoEnd | (";", this as Statement))?)?, "end"
+  syntax ?="\n", cases as ("\n", "case", test as Logic, body as (BodyNoEnd | (";", this as Statement))?)*, default-case as ("\n", "default", this as (BodyNoEnd | (";", this as Statement))?)?, "end"
     for reduce case_ in cases by -1, current = default-case or AST throw Error "Unhandled value in switch"
       let test = case_.test
       let mutable body = @macro-expand-1 case_.body
@@ -3085,6 +3087,11 @@ macro asyncif, asyncunless
         $current(#($err, $result)@ -> $rest)
 
 macro def
+  syntax key as ObjectKey
+    @internal-call \custom,
+      @const \def
+      key
+  
   syntax key as ObjectKey, func as FunctionDeclaration
     @internal-call \custom,
       @const \def
@@ -3096,11 +3103,6 @@ macro def
       @const \def
       key
       value // do-wrap?
-  
-  syntax key as ObjectKey
-    @internal-call \custom,
-      @const \def
-      key
 
 macro class
   syntax name as SimpleAssignable?, generic as ("<", head as Identifier, tail as (",", this as Identifier)*, ">")?, superclass as ("extends", this)?, body as Body?
@@ -3170,7 +3172,7 @@ macro class
     
     let mutable constructor-count = 0
     let is-def(node)
-      node.is-internal-call(\custom) and node.args[0].is-const-value(\def)
+      node and node.is-internal-call(\custom) and node.args[0].is-const-value(\def)
     body.walk-with-this #(node)
       if is-def(node) and node.args[1].is-const-value \constructor
         constructor-count += 1
@@ -3179,7 +3181,7 @@ macro class
     let mutable has-top-level-constructor = false
     if constructor-count == 1
       body.walk-with-this #(node)
-        if is-def(node) and node.args[1].is-const-value(\constructor) and node.args[2].is-internal-call \function
+        if is-def(node) and node.args[1].is-const-value(\constructor) and (not node.args[2] or node.args[2].is-internal-call \function)
           has-top-level-constructor := true
         if node.is-internal-call \block
           // keep walking
@@ -3192,11 +3194,14 @@ macro class
       body := body.walk-with-this #(node)@
         if is-def(node) and node.args[1].is-const-value(\constructor)
           let value = @macro-expand-1 node.args[2]
-          let constructor = @func(
-            value.args[0]
-            value.args[1]
-            AST(value) if eval("this") instanceof $name then eval("this") else { extends $prototype })
-          init.unshift AST(node) let $name as (-> $name) = $constructor
+          if not value
+            init.unshift ASTE(node) let $name as (-> $name) = # throw Error "Not implemented"
+          else
+            let constructor = @func(
+              value.args[0]
+              value.args[1]
+              AST(value) if eval("this") instanceof $name then eval("this") else { extends $prototype })
+            init.unshift AST(node) let $name as (-> $name) = $constructor
           @noop()
         else if node.is-internal-call \block
           void
@@ -3222,7 +3227,9 @@ macro class
       body := body.walk-with-this #(node)@
         if is-def(node) and node.args[1].is-const-value \constructor
           let value = node.args[2]
-          if value.is-call and value.func.is-ident and value.func.name == \__curry and value.args.length == 2 and value.args[1].is-internal-call \function
+          if not value
+            ASTE(node) $ctor := # throw Error "Not implemented"
+          else if value.is-call and value.func.is-ident and value.func.name == \__curry and value.args.length == 2 and value.args[1].is-internal-call \function
             let curry-arg = value.args[0]
             let mutable constructor = value.args[1]
             constructor := @func(

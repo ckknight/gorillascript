@@ -4447,7 +4447,20 @@ let MacroSyntaxParameter = one-of(
       ident
       type or LSymbol.nothing index)
 
-let MacroSyntaxParameters = separated-list(MacroSyntaxParameter, Comma)
+let MacroSyntaxParameterLookahead = one-of(
+  sequential(
+    [\lookahead, one-of(
+      symbol "?="
+      symbol "?!")]
+    [\type, one-of(
+      StringLiteral
+      MacroSyntaxParameterType)]) |> mutate #({lookahead, type}, parser, index)
+    LInternalCall \syntax-lookahead, index, parser.scope.peek(),
+      LValue index, lookahead == "?!"
+      type
+  MacroSyntaxParameter)
+
+let MacroSyntaxParameters = separated-list(MacroSyntaxParameterLookahead, Comma)
 
 let MacroSyntaxChoiceParameters = separated-list(MacroSyntaxParameterType, Pipe)
 
@@ -5333,22 +5346,27 @@ class Parser
         [\choice, ...for choice in as-type.args; serialize-param-type(choice)]
       case \syntax-many
         [\many, as-type.args[1].const-value(), ...serialize-param-type(as-type.args[0])]
+  let serialize-param(param as ParserNode)
+    switch
+    case param.is-const()
+      [\const, param.const-value()]
+    case param.is-internal-call(\syntax-param)
+      let [ident, as-type] = param.args
+      if DEBUG and not (ident.is-symbol and ident.is-ident)
+        throw Error("Unknown param type: $(typeof! ident)")
+      let value = if ident.name == \this
+        [\this]
+      else
+        [\ident, ident.name]
+      if not is-nothing(as-type)
+        value.push ...serialize-param-type(as-type)
+      value
+    case param.is-internal-call(\syntax-lookahead)
+      let [negate, inner] = param.args
+      [\lookahead, if negate.const-value() then 1 else 0, ...serialize-param-type(inner)]
   let serialize-params(params as [ParserNode])
     simplify-array for param in params
-      switch
-      case param.is-const()
-        [\const, param.const-value()]
-      case param.is-internal-call(\syntax-param)
-        let [ident, as-type] = param.args
-        if DEBUG and not (ident.is-symbol and ident.is-ident)
-          throw Error("Unknown param type: $(typeof! ident)")
-        let value = if ident.name == \this
-          [\this]
-        else
-          [\ident, ident.name]
-        if not is-nothing(as-type)
-          value.push ...serialize-param-type(as-type)
-        value
+      serialize-param param
   let deserialize-param-type = do
     let deserialize-param-type-by-type =
       ident: #(scope, name)
@@ -5374,7 +5392,7 @@ class Parser
           deserialize-param-type-by-type[type] scope, ...as-type[1 til Infinity]
         else
           throw Error "Unknown as-type: $(String type)"
-  let deserialize-params = do
+  let deserialize-param = do
     let deserialize-param-by-type =
       const: #(scope, value)
         LValue 0, value
@@ -5386,13 +5404,19 @@ class Parser
         LInternalCall \syntax-param, 0, scope,
           LSymbol.ident 0, scope, \this
           deserialize-param-type(as-type, scope)
-    #(params, scope as Scope)
-      return for param in fix-array(params)
-        let [type] = param
-        if deserialize-param-by-type ownskey type
-          deserialize-param-by-type[type] scope, ...param[1 til Infinity]
-        else
-          throw Error "Unknown param type: $(String type)"
+      lookahead: #(scope, negate, ...as-type)
+        LInternalCall \syntax-lookahead, 0, scope,
+          LValue 0, not not negate
+          deserialize-param-type(as-type, scope)
+    #(param, scope as Scope)
+      let [type] = param
+      if deserialize-param-by-type ownskey type
+        deserialize-param-by-type[type] scope, ...param[1 til Infinity]
+      else
+        throw Error "Unknown param type: $(String type)"
+  let deserialize-params(params, scope as Scope)
+    return for param in fix-array(params)
+      deserialize-param param
   
   let calc-param(param as ParserNode)
     switch
@@ -5420,19 +5444,29 @@ class Parser
         case "*"; zero-or-more calced
         case "+"; one-or-more calced
         case "?"; one-of calced, Nothing
+
+  let handle-param(param)
+    switch
+    case param.is-const-type(\string)
+      let string = param.const-value()
+      macro-syntax-const-literals![string] or word-or-symbol string
+    case param.is-internal-call(\syntax-param)
+      let [ident, as-type] = param.args
+      if DEBUG and not (ident.is-symbol and ident.is-ident)
+        throw Error("Unknown param type: $(typeof! ident)")
+
+      [ident.name, calc-param@ this, (if not is-nothing(as-type) then as-type else LSymbol.ident 0, param.scope, \Expression)]
+    case param.is-internal-call(\syntax-lookahead)
+      let [negate, as-type] = param.args
+      let calced = calc-param@ this, as-type
+      if negate.const-value()
+        except calced
+      else
+        check calced
   
   let handle-params(params as [ParserNode])
     sequential ...for param in params
-      switch
-      case param.is-const-type(\string)
-        let string = param.const-value()
-        macro-syntax-const-literals![string] or word-or-symbol string
-      case param.is-internal-call(\syntax-param)
-        let [ident, as-type] = param.args
-        if DEBUG and not (ident.is-symbol and ident.is-ident)
-          throw Error("Unknown param type: $(typeof! ident)")
-
-        [ident.name, calc-param@ this, (if not is-nothing(as-type) then as-type else LSymbol.ident 0, param.scope, \Expression)]
+      handle-param@ this, param
 
   let simplify-array(operators as [])
     if operators.length == 0

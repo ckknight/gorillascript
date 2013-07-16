@@ -44,7 +44,7 @@ class MacroHolder
     else
       let token = @macro-name name
       let m(parser, index)
-        for item in m.data
+        for item in m.data by -1
           returnif item parser, index
       m.token := token
       m.data := []
